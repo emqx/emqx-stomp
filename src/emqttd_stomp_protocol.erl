@@ -31,7 +31,7 @@
 
 -include("emqttd_stomp.hrl").
 
--include("emqttd/include/emqttd.hrl").
+-include_lib("emqttd/include/emqttd.hrl").
 
 %% API
 -export([init/3, info/1]).
