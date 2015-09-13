@@ -166,7 +166,7 @@ parse(body, Bin, State, none) ->
         [Chunk] ->
             {more, fun(More) -> parse(body, More, acc(Chunk, State), none) end}
     end;
-parse(body, Bin, State, Len) when byte_size(Bin) >= Len ->
+parse(body, Bin, State, Len) when byte_size(Bin) >= (Len+1) ->
     <<Chunk:Len/binary, ?NULL, Rest/binary>> = Bin,
     {ok, new_frame(acc(Chunk, State)), Rest};
 parse(body, Bin, State, Len) ->
@@ -180,7 +180,7 @@ add_header(Name, Value, Headers) ->
 
 content_len(#parser_state{headers = Headers}) ->
     case lists:keyfind(<<"content-length">>, 1, Headers) of
-        {_, Val} -> list_to_integer(binary_to_list(Val)) + 1;
+        {_, Val} -> list_to_integer(binary_to_list(Val));
         false    -> none
     end.
 
