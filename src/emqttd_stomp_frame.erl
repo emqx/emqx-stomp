@@ -141,7 +141,7 @@ parse(command, <<Ch:8, Rest/binary>>, State) ->
     parse(command, Rest, acc(Ch, State));
 
 parse(headers, <<?LF, Rest/binary>>, State) ->
-    parse(body, Rest, State, content_len(State#parser_state{acc = <<>>})+1);
+    parse(body, Rest, State, content_len(State#parser_state{acc = <<>>}));
 parse(headers, Bin, State) ->
     parse(hdname, Bin, State);
 
@@ -180,7 +180,7 @@ add_header(Name, Value, Headers) ->
 
 content_len(#parser_state{headers = Headers}) ->
     case lists:keyfind(<<"content-length">>, 1, Headers) of
-        {_, Val} -> list_to_integer(binary_to_list(Val));
+        {_, Val} -> list_to_integer(binary_to_list(Val)) + 1;
         false    -> none
     end.
 
