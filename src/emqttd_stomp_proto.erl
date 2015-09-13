@@ -38,6 +38,8 @@
 
 -export([received/2, send/2]).
 
+-export([shutdown/2]).
+
 -record(proto_state, {peername,
                       sendfun,
                       connected = false,
@@ -151,6 +153,9 @@ send(Frame, State = #proto_state{peername = Peername, sendfun = SendFun}) ->
     lager:debug("SENT to ~s: ~p", [emqttd_net:format(Peername), Data]),
     SendFun(Data),
     {ok, State}.
+
+shutdown(_Reason, _State) ->
+    ok.
 
 next_msgid() ->
     MsgId =

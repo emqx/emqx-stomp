@@ -145,12 +145,12 @@ parse(headers, <<?LF, Rest/binary>>, State) ->
 parse(headers, Bin, State) ->
     parse(hdname, Bin, State);
 
-parse(hdrname, <<?LF, _Rest/binary>>, _State) ->
+parse(hdname, <<?LF, _Rest/binary>>, _State) ->
     {error, unexpected_linefeed};
-parse(hdrname, <<?COLON, Rest/binary>>, State = #parser_state{acc = Acc}) ->
-    parse(hdrvalue, Rest, State#parser_state{hdname = Acc, acc = <<>>});
-parse(hdrname, <<Ch:8, Rest/binary>>, State) ->
-    parse(hdrname, Rest, acc(Ch, State));
+parse(hdname, <<?COLON, Rest/binary>>, State = #parser_state{acc = Acc}) ->
+    parse(hdvalue, Rest, State#parser_state{hdname = Acc, acc = <<>>});
+parse(hdname, <<Ch:8, Rest/binary>>, State) ->
+    parse(hdname, Rest, acc(Ch, State));
 
 parse(hdvalue, <<?LF, Rest/binary>>, State = #parser_state{headers = Headers, hdname = Name, acc = Acc}) ->
     parse(headers, Rest, State#parser_state{headers = add_header(Name, Acc, Headers), hdname = undefined, acc = <<>>});
