@@ -217,7 +217,7 @@ serialize(header, {Name, Val}) ->
     [escape(Name), ?COLON, escape(Val), ?LF].
 
 escape(Bin) when is_binary(Bin) ->
-    << <<(escape(Ch))/binary>> || <<Ch>> <- Bin >>;
+    << <<(escape(Ch))/binary>> || <<Ch>> <= Bin >>;
 escape(?CR)    -> <<?BSL, $r>>;
 escape(?LF)    -> <<?BSL, $n>>;
 escape(?BSL)   -> <<?BSL, ?BSL>>;
