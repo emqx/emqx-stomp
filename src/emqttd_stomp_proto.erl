@@ -149,7 +149,7 @@ send(Msg = #mqtt_message{topic = Topic, payload = Payload},
     end;
 
 send(Frame, State = #proto_state{peername = Peername, sendfun = SendFun}) ->
-    Data = emqttd_stomp_frame:serialise(Frame),
+    Data = emqttd_stomp_frame:serialize(Frame),
     lager:debug("SENT to ~s: ~p", [emqttd_net:format(Peername), Data]),
     SendFun(Data),
     {ok, State}.
