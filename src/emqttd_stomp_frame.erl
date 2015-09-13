@@ -82,6 +82,8 @@
 
 -export([parser/1, serialize/1]).
 
+-export([make/1, make/2]).
+
 -define(NULL,  0).
 -define(CR,    $\r).
 -define(LF,    $\n).
@@ -221,4 +223,22 @@ escape(?LF)    -> <<?BSL, $n>>;
 escape(?BSL)   -> <<?BSL, ?BSL>>;
 escape(?COLON) -> <<?BSL, $c>>;
 escape(Ch)     -> <<Ch>>.
+
+%%------------------------------------------------------------------------------
+%% @doc Header
+%% @end
+%%------------------------------------------------------------------------------
+
+
+%%------------------------------------------------------------------------------
+%% @doc Make a frame
+%% @end
+%%------------------------------------------------------------------------------
+
+make(<<"CONNECTED">>) ->
+    make(<<"CONNECTED">>, [{<<"version">>, ?STOMP_VER},
+                           {<<"server">>,  ?STOMP_SERVER}]).
+
+make(Command, Headers) ->
+    #stomp_frame{command = Command, headers = Headers}.
 

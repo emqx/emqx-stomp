@@ -31,6 +31,8 @@
 
 -include("emqttd_stomp.hrl").
 
+-include("emqttd/include/emqttd.hrl").
+
 %% API
 -export([init/3, info/1]).
 
@@ -42,7 +44,7 @@
                       proto_ver,
                       proto_name,
                       username,
-                      session}).
+                      subscriptions = []}).
 
 -type proto_state() :: #proto_state{}.
 
@@ -61,26 +63,101 @@ info(#proto_state{proto_ver = Ver}) ->
 -spec received(stomp_frame(), proto_state()) -> {ok, proto_state()}
                                               | {error, any(), proto_state()}
                                               | {stop, any(), proto_state()}.
-received(Frame, State) ->
-    ok;
-received(Frame, State) ->
-    ok;
-received(Frame, State) ->
-    ok;
-received(Frame, State) ->
-    ok;
-received(Frame, State) ->
-    ok;
-received(Frame, State) ->
-    ok;
-received(Frame, State) ->
-    ok;
-received(Frame, State) ->
-    ok.
+received(Frame = #stomp_frame{command = <<"STOMP">>}, State) ->
+    received(Frame#stomp_frame{command = <<"CONNECT">>}, State);
+
+received(#stomp_frame{command = <<"CONNECT">>}, State = #proto_state{connected = false}) ->
+    send(emqttd_stomp_frame:make(<<"CONNECTED">>), State#proto_state{connected = true});
+
+received(#stomp_frame{command = <<"CONNECT">>}, State = #proto_state{connected = true}) ->
+    {error, unexpected_connect, State};
+
+received(#stomp_frame{command = <<"SEND">>, headers = Headers, body = Body}, State) ->
+    Topic = proplists:get_value(<<"destination">>, Headers),
+    Msg = emqttd_message:make(stomp, Topic, iolist_to_binary(Body)),
+    emqttd_pubsub:publish(Msg),
+    {ok, State};
+
+received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
+            State = #proto_state{subscriptions = Subscriptions}) ->
+    Id    = proplists:get_value(<<"id">>, Headers),
+    Topic = proplists:get_value(<<"destination">>, Headers),
+    Ack   = proplists:get_value(<<"ack">>, Headers),
+    case lists:keyfind(Id, 1, Subscriptions) of
+        {Id, Topic, Ack} ->
+            {ok, State};
+        false ->
+            emqttd_pubsub:subscribe(Topic, qos1),
+            {ok, State#proto_state{subscriptions = [{Id, Topic, Ack}|Subscriptions]}}
+    end;
+
+received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
+            State = #proto_state{subscriptions = Subscriptions}) ->
+    Id = proplists:get_value(<<"id">>, Headers),
+    case lists:keyfind(Id, 1, Subscriptions) of
+        {Id, Topic, _Ack} ->
+            emqttd_pubsub:unsubscribe(Topic),
+            State#proto_state{subscriptions = lists:keydelete(Id, 1, Subscriptions)};
+        false ->
+            {ok, State}
+    end;
+
+received(#stomp_frame{command = <<"ACK">>, headers = Headers}, State) ->
+    %% id:12345
+    %% transaction:tx1
+    {ok, State};
+
+received(#stomp_frame{command = <<"NACK">>, headers = Headers}, State) ->
+    %% id:12345
+    %% transaction:tx1
+    {ok, State};
+
+received(#stomp_frame{command = <<"BEGIN">>, headers = Headers}, State) ->
+    %% transaction:tx1
+    {ok, State};
+
+received(#stomp_frame{command = <<"COMMIT">>, headers = Headers}, State) ->
+    %% transaction:tx1
+    {ok, State};
+
+received(#stomp_frame{command = <<"ABORT">>, headers = Headers}, State) ->
+    %% transaction:tx1
+    {ok, State};
+
+received(#stomp_frame{command = <<"DISCONNECT">>, headers = Headers}, State) ->
+    Receipt = proplists:get_value(<<"receipt">>, Headers),
+    Frame = emqttd_stomp:make(<<"RECEIPT">>, [{<<"receipt-id">>, Receipt}]),
+    send(Frame, State),
+    {stop, normal, State}.
+
+send(Msg = #mqtt_message{topic = Topic, payload = Payload},
+     State = #proto_state{subscriptions = Subscriptions}) ->
+    case lists:keyfind(Topic, 2, Subscriptions) of
+        {Id, Topic, _Ack} ->
+            Headers = [{<<"subscription">>, Id},
+                       {<<"message-id">>, next_msgid()},
+                       {<<"destination">>, Topic},
+                       {<<"content-type">>, <<"text/plain">>}], 
+            Frame = #stomp_frame{command = <<"MESSAGE">>,
+                                 headers = Headers,
+                                 body = Payload},
+            send(Frame, State);
+        false ->
+            lager:error("Stomp dropped: ~p", [Msg])
+    end;
 
 send(Frame, State = #proto_state{peername = Peername, sendfun = SendFun}) ->
     Data = emqttd_stomp_frame:serialise(Frame),
     lager:debug("SENT to ~s: ~p", [emqttd_net:format(Peername), Data]),
     SendFun(Data),
     {ok, State}.
+
+next_msgid() ->
+    MsgId =
+    case get(msgid) of
+        undefined -> 1;
+        I         -> I
+    end,
+    put(msgid, MsgId+1),
+    MsgId.
 

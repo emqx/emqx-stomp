@@ -107,6 +107,10 @@ handle_info({inet_reply, _Sock, {error, Reason}}, State = #state{peername = Peer
     lager:critical("Client ~s: unexpected inet_reply '~p'", [emqttd_net:format(Peername), Reason]),
     {noreply, State};
 
+handle_info({dispatch, Msg}, State = #state{proto_state = ProtoState}) ->
+    {ok, ProtoState1} = emqttd_stomp_proto:send(Msg, ProtoState),
+    {noreply, State#state{proto_state = ProtoState1}};
+
 handle_info(Info, State = #state{peername = Peername}) ->
     lager:critical("Stomp(~s): unexpected info ~p",[emqttd_net:format(Peername), Info]),
     {noreply, State}.

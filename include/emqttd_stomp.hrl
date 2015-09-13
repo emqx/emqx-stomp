@@ -25,11 +25,20 @@
 %%% @end
 %%%-----------------------------------------------------------------------------
 
--record(stomp_frame, {command, headers = [], body :: iolist()}).
+-define(STOMP_VER, <<"1.2">>).
+-define(STOMP_SERVER, <<"emqttd-stomp/1.0">>).
+
+%%------------------------------------------------------------------------------
+%% STOMP Frame
+%%------------------------------------------------------------------------------
+-record(stomp_frame, {command, headers = [], body = <<>> :: iolist()}).
 
 -type stomp_frame() ::  #stomp_frame{}.
 
--define(MAX_HEADER_NUM,    10).
--define(MAX_HEADER_LENGTH, 1024).
--define(MAX_BODY_LENGTH,   65536).
+%%------------------------------------------------------------------------------
+%% Frame Limit
+%%------------------------------------------------------------------------------
+-define(MAX_HEADER_NUM,        10).
+-define(MAX_HEADER_LENGTH,     1024).
+-define(MAX_BODY_LENGTH,       65536).
 
