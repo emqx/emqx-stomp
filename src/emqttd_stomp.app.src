@@ -1,0 +1,12 @@
+{application, emqttd_stomp,
+ [
+  {description, "emqttd stomp plugin"},
+  {vsn, "0.11"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { emqttd_stomp_app, []}},
+  {env, []}
+ ]}.
