@@ -99,7 +99,7 @@ received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
     case lists:keyfind(Id, 1, Subscriptions) of
         {Id, Topic, _Ack} ->
             emqttd_pubsub:unsubscribe(Topic),
-            State#proto_state{subscriptions = lists:keydelete(Id, 1, Subscriptions)};
+            {ok, State#proto_state{subscriptions = lists:keydelete(Id, 1, Subscriptions)}};
         false ->
             {ok, State}
     end;
@@ -128,7 +128,7 @@ received(#stomp_frame{command = <<"ABORT">>, headers = Headers}, State) ->
 
 received(#stomp_frame{command = <<"DISCONNECT">>, headers = Headers}, State) ->
     Receipt = proplists:get_value(<<"receipt">>, Headers),
-    Frame = emqttd_stomp:make(<<"RECEIPT">>, [{<<"receipt-id">>, Receipt}]),
+    Frame = emqttd_stomp_frame:make(<<"RECEIPT">>, [{<<"receipt-id">>, Receipt}]),
     send(Frame, State),
     {stop, normal, State}.
 
