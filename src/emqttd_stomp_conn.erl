@@ -142,7 +142,7 @@ received(Bytes, State = #state{conn_name   = ConnStr,
         {more, NewParser} ->
             noreply(control_throttle(State#state{parser = NewParser}));
         {ok, Frame, Rest} ->
-            lager:info("RECV Frame: ~p", [Frame]),
+            lager:info("RECV Frame: ~s", [emqttd_stomp_frame:format(Frame)]),
             case emqttd_stomp_proto:received(Frame, ProtoState) of
                 {ok, ProtoState1}           ->
                     received(Rest, reset_parser(State#state{proto_state = ProtoState1}));

@@ -68,8 +68,13 @@ info(#proto_state{proto_ver = Ver}) ->
 received(Frame = #stomp_frame{command = <<"STOMP">>}, State) ->
     received(Frame#stomp_frame{command = <<"CONNECT">>}, State);
 
-received(#stomp_frame{command = <<"CONNECT">>}, State = #proto_state{connected = false}) ->
-    send(emqttd_stomp_frame:make(<<"CONNECTED">>), State#proto_state{connected = true});
+received(#stomp_frame{command = <<"CONNECT">>, headers = Headers}, State = #proto_state{connected = false}) ->
+    RespHeaders =
+    case proplists:get_value(<<"heart-beat">>, Headers) of
+        undefined -> [];
+        HeartBeat -> [{<<"heart-beat">>, HeartBeat}]
+    end,
+    send(emqttd_stomp_frame:make(<<"CONNECTED">>, RespHeaders), State#proto_state{connected = true});
 
 received(#stomp_frame{command = <<"CONNECT">>}, State = #proto_state{connected = true}) ->
     {error, unexpected_connect, State};
@@ -149,6 +154,7 @@ send(Msg = #mqtt_message{topic = Topic, payload = Payload},
     end;
 
 send(Frame, State = #proto_state{peername = Peername, sendfun = SendFun}) ->
+    lager:info("SEND Frame: ~s", [emqttd_stomp_frame:format(Frame)]),
     Data = emqttd_stomp_frame:serialize(Frame),
     lager:debug("SENT to ~s: ~p", [emqttd_net:format(Peername), Data]),
     SendFun(Data),

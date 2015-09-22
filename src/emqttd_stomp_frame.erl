@@ -82,7 +82,7 @@
 
 -export([parser/1, serialize/1]).
 
--export([make/1, make/2]).
+-export([make/2, format/1]).
 
 -define(NULL,  0).
 -define(CR,    $\r).
@@ -235,10 +235,18 @@ escape(Ch)     -> <<Ch>>.
 %% @end
 %%------------------------------------------------------------------------------
 
-make(<<"CONNECTED">>) ->
-    make(<<"CONNECTED">>, [{<<"version">>, ?STOMP_VER},
-                           {<<"server">>,  ?STOMP_SERVER}]).
+make(<<"CONNECTED">>, Headers) ->
+    #stomp_frame{command = <<"CONNECTED">>,
+                 headers = [{<<"version">>, ?STOMP_VER},
+                            {<<"server">>,  ?STOMP_SERVER} | Headers]};
 
 make(Command, Headers) ->
     #stomp_frame{command = Command, headers = Headers}.
+
+%%------------------------------------------------------------------------------
+%% @doc Format a frame
+%% @end
+%%------------------------------------------------------------------------------
+format(Frame) ->
+    serialize(Frame).
 
