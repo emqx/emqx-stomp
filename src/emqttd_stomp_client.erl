@@ -20,12 +20,12 @@
 %%% SOFTWARE.
 %%%-----------------------------------------------------------------------------
 %%% @doc
-%%% Stomp connection
+%%% Stomp client connection
 %%%
 %%% @end
 %%%-----------------------------------------------------------------------------
 
--module(emqttd_stomp_conn).
+-module(emqttd_stomp_client).
 
 -author("Feng Lee <feng@emqtt.io>").
 

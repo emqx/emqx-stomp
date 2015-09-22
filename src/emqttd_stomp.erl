@@ -41,7 +41,7 @@ start_listeners() ->
 
 start_listener({Name, Port, Opts}) ->
     {ok, Env} = application:get_env(emqttd_stomp, frame),
-    MFArgs = {emqttd_stomp_conn, start_link, [Env]},
+    MFArgs = {emqttd_stomp_client, start_link, [Env]},
     esockd:open(Name, Port, merge_sockopts(Opts), MFArgs).
 
 merge_sockopts(Opts) ->
