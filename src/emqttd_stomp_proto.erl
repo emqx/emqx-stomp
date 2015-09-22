@@ -33,6 +33,8 @@
 
 -include_lib("emqttd/include/emqttd.hrl").
 
+-import(proplists, [get_value/2, get_value/3]).
+
 %% API
 -export([init/3, info/1]).
 
@@ -45,7 +47,8 @@
                       connected = false,
                       proto_ver,
                       proto_name,
-                      username,
+                      heart_beats,
+                      login,
                       subscriptions = []}).
 
 -type proto_state() :: #proto_state{}.
@@ -69,27 +72,40 @@ received(Frame = #stomp_frame{command = <<"STOMP">>}, State) ->
     received(Frame#stomp_frame{command = <<"CONNECT">>}, State);
 
 received(#stomp_frame{command = <<"CONNECT">>, headers = Headers}, State = #proto_state{connected = false}) ->
-    RespHeaders =
-    case proplists:get_value(<<"heart-beat">>, Headers) of
-        undefined -> [];
-        HeartBeat -> [{<<"heart-beat">>, HeartBeat}]
-    end,
-    send(emqttd_stomp_frame:make(<<"CONNECTED">>, RespHeaders), State#proto_state{connected = true});
+    case negotiate_version(header(<<"accept-version">>, Headers)) of
+        {ok, Version} ->
+            case check_login(Login = header(<<"login">>, Headers), header(<<"passcode">>, Headers)) of
+                true ->
+                    %%TODO...
+                    Heartbeats = header(<<"heart-beat">>, Headers, <<"0,0">>),
+                    self() ! {heartbeats, strat, Heartbeats},
+                    NewState = State#proto_state{connected = true, proto_ver = Version,
+                                                 heart_beats = Heartbeats, login = Login},
+                    send(emqttd_stomp_frame:make(<<"CONNECTED">>, [{<<"version">>,    Version},
+                                                                   {<<"heart-beat">>, Heartbeats}]), NewState);
+                false ->
+                    send(error_frame(<<"Login or passcode error!">>), State)
+             end;
+        {error, Msg} ->
+            send(error_frame([{<<"version">>, <<"1.0,1.1,1.2">>},
+                              {<<"content-type">>, <<"text/plain">>}], Msg), State)
+    end;
+
 
 received(#stomp_frame{command = <<"CONNECT">>}, State = #proto_state{connected = true}) ->
     {error, unexpected_connect, State};
 
 received(#stomp_frame{command = <<"SEND">>, headers = Headers, body = Body}, State) ->
-    Topic = proplists:get_value(<<"destination">>, Headers),
+    Topic = get_value(<<"destination">>, Headers),
     Msg = emqttd_message:make(stomp, Topic, iolist_to_binary(Body)),
     emqttd_pubsub:publish(Msg),
     {ok, State};
 
 received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
             State = #proto_state{subscriptions = Subscriptions}) ->
-    Id    = proplists:get_value(<<"id">>, Headers),
-    Topic = proplists:get_value(<<"destination">>, Headers),
-    Ack   = proplists:get_value(<<"ack">>, Headers),
+    Id    = get_value(<<"id">>, Headers),
+    Topic = get_value(<<"destination">>, Headers),
+    Ack   = get_value(<<"ack">>, Headers),
     case lists:keyfind(Id, 1, Subscriptions) of
         {Id, Topic, Ack} ->
             {ok, State};
@@ -100,7 +116,7 @@ received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
 
 received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
             State = #proto_state{subscriptions = Subscriptions}) ->
-    Id = proplists:get_value(<<"id">>, Headers),
+    Id = get_value(<<"id">>, Headers),
     case lists:keyfind(Id, 1, Subscriptions) of
         {Id, Topic, _Ack} ->
             emqttd_pubsub:unsubscribe(Topic),
@@ -132,7 +148,7 @@ received(#stomp_frame{command = <<"ABORT">>, headers = Headers}, State) ->
     {ok, State};
 
 received(#stomp_frame{command = <<"DISCONNECT">>, headers = Headers}, State) ->
-    Receipt = proplists:get_value(<<"receipt">>, Headers),
+    Receipt = get_value(<<"receipt">>, Headers),
     Frame = emqttd_stomp_frame:make(<<"RECEIPT">>, [{<<"receipt-id">>, Receipt}]),
     send(Frame, State),
     {stop, normal, State}.
@@ -160,15 +176,47 @@ send(Frame, State = #proto_state{peername = Peername, sendfun = SendFun}) ->
     SendFun(Data),
     {ok, State}.
 
+negotiate_version(undefined) ->
+    {ok, <<"1.0">>};
+negotiate_version(Accepts) ->
+     negotiate_version(?STOMP_VER,
+                        lists:reverse(
+                          lists:sort(
+                            binary:split(Accepts, <<",">>, [global])))).
+
+negotiate_version(Ver, []) ->
+    {error, <<"Supported protocol versions < ", Ver/binary>>};
+negotiate_version(Ver, [AcceptVer|_]) when Ver >= AcceptVer ->
+    {ok, AcceptVer};
+negotiate_version(Ver, [_|T]) ->
+    negotiate_version(Ver, T).
+
+check_login(undefined, _) ->
+    application:get_env(emqttd_stomp, allow_anonymouse, false);
+check_login(Login, Passcode) ->
+    DefaultUser = application:get_env(emqttd_stomp, default_user),
+    case {get_value(login, DefaultUser), get_value(passcode, DefaultUser)} of
+        {Login, Passcode} -> true;
+        {_,     _       } -> false
+    end.
+
+header(Name, Headers) ->
+    get_value(Name, Headers).
+header(Name, Headers, Val) ->
+    get_value(Name, Headers, Val).
+
+error_frame(Msg) ->
+    error_frame([{<<"content-type">>, <<"text/plain">>}], Msg). 
+error_frame(Headers, Msg) ->
+    emqttd_stomp_frame:make(<<"ERROR">>, [{<<"content-type">>, <<"text/plain">>}], Msg).
+
 shutdown(_Reason, _State) ->
     ok.
 
 next_msgid() ->
-    MsgId =
-    case get(msgid) of
-        undefined -> 1;
-        I         -> I
-    end,
-    put(msgid, MsgId+1),
-    MsgId.
+    MsgId = case get(msgid) of
+                undefined -> 1;
+                I         -> I
+            end,
+    put(msgid, MsgId+1), MsgId.
 

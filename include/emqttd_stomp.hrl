@@ -26,7 +26,7 @@
 %%%-----------------------------------------------------------------------------
 
 -define(STOMP_VER, <<"1.2">>).
--define(STOMP_SERVER, <<"emqttd-stomp/1.0">>).
+-define(STOMP_SERVER, <<"emqttd-stomp/1.2">>).
 
 %%------------------------------------------------------------------------------
 %% STOMP Frame
@@ -36,7 +36,17 @@
 -type stomp_frame() ::  #stomp_frame{}.
 
 %%------------------------------------------------------------------------------
-%% Frame Limit
+%% Frame Size Limits
+%%
+%% To prevent malicious clients from exploiting memory allocation in a server,
+%% servers MAY place maximum limits on:
+%%
+%% the number of frame headers allowed in a single frame
+%% the maximum length of header lines
+%% the maximum size of a frame body
+%%
+%% If these limits are exceeded the server SHOULD send the client an ERROR frame
+%% and then close the connection.
 %%------------------------------------------------------------------------------
 -define(MAX_HEADER_NUM,        10).
 -define(MAX_HEADER_LENGTH,     1024).

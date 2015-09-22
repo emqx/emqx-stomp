@@ -82,7 +82,7 @@
 
 -export([parser/1, serialize/1]).
 
--export([make/2, format/1]).
+-export([make/2, make/3, format/1]).
 
 -define(NULL,  0).
 -define(CR,    $\r).
@@ -242,6 +242,9 @@ make(<<"CONNECTED">>, Headers) ->
 
 make(Command, Headers) ->
     #stomp_frame{command = Command, headers = Headers}.
+
+make(Command, Headers, Body) ->
+    #stomp_frame{command = Command, headers = Headers, body = Body}.
 
 %%------------------------------------------------------------------------------
 %% @doc Format a frame
