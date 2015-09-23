@@ -219,7 +219,7 @@ negotiate_version(Ver, [_|T]) ->
     negotiate_version(Ver, T).
 
 check_login(undefined, _) ->
-    application:get_env(emqttd_stomp, allow_anonymouse, false);
+    application:get_env(emqttd_stomp, allow_anonymous, false);
 check_login(Login, Passcode) ->
     DefaultUser = application:get_env(emqttd_stomp, default_user),
     case {get_value(login, DefaultUser), get_value(passcode, DefaultUser)} of
