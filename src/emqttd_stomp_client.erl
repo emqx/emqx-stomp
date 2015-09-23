@@ -93,6 +93,10 @@ handle_cast(Msg, State = #state{peername = Peername}) ->
 handle_info(timeout, State) ->
     stop({shutdown, timeout}, State);
 
+handle_info({heartbeats, _}, State) ->
+    %%TODO:...
+    noreply(State);
+
 handle_info({inet_reply, _Ref, ok}, State) ->
     noreply(State);
 

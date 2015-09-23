@@ -76,13 +76,12 @@ received(#stomp_frame{command = <<"CONNECT">>, headers = Headers}, State = #prot
         {ok, Version} ->
             case check_login(Login = header(<<"login">>, Headers), header(<<"passcode">>, Headers)) of
                 true ->
-                    %%TODO...
                     Heartbeats = header(<<"heart-beat">>, Headers, <<"0,0">>),
-                    self() ! {heartbeats, strat, Heartbeats},
+                    emqttd_stomp_heartbeat:start(Heartbeats),
                     NewState = State#proto_state{connected = true, proto_ver = Version,
                                                  heart_beats = Heartbeats, login = Login},
-                    send(emqttd_stomp_frame:make(<<"CONNECTED">>, [{<<"version">>,    Version},
-                                                                   {<<"heart-beat">>, Heartbeats}]), NewState);
+                    send(connected_frame([{<<"version">>, Version},
+                                          {<<"heart-beat">>, reverse_heartbeats(Heartbeats)}]), NewState);
                 false ->
                     send(error_frame(<<"Login or passcode error!">>), State)
              end;
@@ -91,21 +90,19 @@ received(#stomp_frame{command = <<"CONNECT">>, headers = Headers}, State = #prot
                               {<<"content-type">>, <<"text/plain">>}], Msg), State)
     end;
 
-
 received(#stomp_frame{command = <<"CONNECT">>}, State = #proto_state{connected = true}) ->
     {error, unexpected_connect, State};
 
 received(#stomp_frame{command = <<"SEND">>, headers = Headers, body = Body}, State) ->
-    Topic = get_value(<<"destination">>, Headers),
-    Msg = emqttd_message:make(stomp, Topic, iolist_to_binary(Body)),
+    Msg = emqttd_message:make(stomp, header(<<"destination">>, Headers), iolist_to_binary(Body)),
     emqttd_pubsub:publish(Msg),
     {ok, State};
 
 received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
             State = #proto_state{subscriptions = Subscriptions}) ->
-    Id    = get_value(<<"id">>, Headers),
-    Topic = get_value(<<"destination">>, Headers),
-    Ack   = get_value(<<"ack">>, Headers),
+    Id    = header(<<"id">>, Headers),
+    Topic = header(<<"destination">>, Headers),
+    Ack   = header(<<"ack">>, Headers, <<"auto">>),
     case lists:keyfind(Id, 1, Subscriptions) of
         {Id, Topic, Ack} ->
             {ok, State};
@@ -116,7 +113,7 @@ received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
 
 received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
             State = #proto_state{subscriptions = Subscriptions}) ->
-    Id = get_value(<<"id">>, Headers),
+    Id = header(<<"id">>, Headers),
     case lists:keyfind(Id, 1, Subscriptions) of
         {Id, Topic, _Ack} ->
             emqttd_pubsub:unsubscribe(Topic),
@@ -125,32 +122,62 @@ received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
             {ok, State}
     end;
 
+%% ACK
+%% id:12345
+%% transaction:tx1
+%%
+%% ^@
 received(#stomp_frame{command = <<"ACK">>, headers = Headers}, State) ->
-    %% id:12345
-    %% transaction:tx1
+    %%TODO...
     {ok, State};
 
+%% NACK
+%% id:12345
+%% transaction:tx1
+%%
+%% ^@
 received(#stomp_frame{command = <<"NACK">>, headers = Headers}, State) ->
-    %% id:12345
-    %% transaction:tx1
+    %%TODO...
     {ok, State};
 
+%% BEGIN
+%% transaction:tx1
+%%
+%% ^@
 received(#stomp_frame{command = <<"BEGIN">>, headers = Headers}, State) ->
-    %% transaction:tx1
-    {ok, State};
+    Id        = header(<<"transaction">>, Headers),
+    %% self() ! TimeoutMsg
+    TimeoutMsg = {transaction, {timeout, Id}},
+    case emqttd_stomp_transaction:start(Id, TimeoutMsg) of
+        {ok, _Transaction}       ->
+            {ok, State};
+        {error, already_started} ->
+            send(error_frame(["Transaction ", Id, " already started"]), State)
+    end;
 
+%% COMMIT
+%% transaction:tx1
+%%
+%% ^@
 received(#stomp_frame{command = <<"COMMIT">>, headers = Headers}, State) ->
-    %% transaction:tx1
-    {ok, State};
+    Id = header(<<"transaction">>, Headers),
+    case emqttd_stomp_transaction:commit(Id, State) of
+        {ok, NewState} ->
+            {ok, NewState};
+        {error, not_found} ->
+            send(error_frame(["Transaction ", Id, " not found"]), State)
+    end;
 
+%% ABORT
+%% transaction:tx1
+%%
+%% ^@
 received(#stomp_frame{command = <<"ABORT">>, headers = Headers}, State) ->
-    %% transaction:tx1
-    {ok, State};
+    Id = header(<<"transaction">>, Headers),
+    emqttd_stomp_transaction:abort(Id), {ok, State};
 
 received(#stomp_frame{command = <<"DISCONNECT">>, headers = Headers}, State) ->
-    Receipt = get_value(<<"receipt">>, Headers),
-    Frame = emqttd_stomp_frame:make(<<"RECEIPT">>, [{<<"receipt-id">>, Receipt}]),
-    send(Frame, State),
+    send(receipt_frame(header(<<"receipt">>, Headers)), State),
     {stop, normal, State}.
 
 send(Msg = #mqtt_message{topic = Topic, payload = Payload},
@@ -205,10 +232,20 @@ header(Name, Headers) ->
 header(Name, Headers, Val) ->
     get_value(Name, Headers, Val).
 
+connected_frame(Headers) ->
+    emqttd_stomp_frame:make(<<"CONNECTED">>, Headers).
+
+receipt_frame(Receipt) ->
+    emqttd_stomp_frame:make(<<"RECEIPT">>, [{<<"receipt-id">>, Receipt}]).
+
 error_frame(Msg) ->
     error_frame([{<<"content-type">>, <<"text/plain">>}], Msg). 
 error_frame(Headers, Msg) ->
-    emqttd_stomp_frame:make(<<"ERROR">>, [{<<"content-type">>, <<"text/plain">>}], Msg).
+    emqttd_stomp_frame:make(<<"ERROR">>, Headers, Msg).
+
+reverse_heartbeats(Heartbeats) ->
+    CxCy = re:split(Heartbeats, <<",">>, [{return, list}]),
+    list_to_binary(string:join(lists:reverse(CxCy), ",")).
 
 shutdown(_Reason, _State) ->
     ok.

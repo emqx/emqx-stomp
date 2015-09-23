@@ -106,7 +106,7 @@
 %%------------------------------------------------------------------------------
 -spec parser([proplists:property()]) -> parser().
 parser(Opts) ->
-    fun(Bin) -> parse(command, Bin, #parser_state{limit = limit(Opts)}) end.
+    fun(Bin) -> parse(none, Bin, #parser_state{limit = limit(Opts)}) end.
 
 limit(Opts) ->
     #frame_limit{max_header_num     = g(max_header_num,    Opts, ?MAX_HEADER_NUM),
@@ -122,6 +122,14 @@ g(Key, Opts, Val) ->
 %%------------------------------------------------------------------------------
 -spec parse(Phase :: atom(), binary(), #parser_state{}) ->
     {ok, stomp_frame(), binary()} | {more, parser()} | {error, any()}.
+
+parse(none, <<>>, State) ->
+    {more, fun(Bin) -> parse(none, Bin, State) end};
+parse(none, <<?LF, Bin/binary>>, State) ->
+    parse(none, Bin, State);
+parse(none, Bin, State) ->
+    parse(command, Bin, State);
+
 parse(Phase, <<>>, State) ->
     {more, fun(Bin) -> parse(Phase, Bin, State) end};
 parse(Phase, <<?CR>>, State) ->
