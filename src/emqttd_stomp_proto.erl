@@ -94,9 +94,17 @@ received(#stomp_frame{command = <<"CONNECT">>}, State = #proto_state{connected =
     {error, unexpected_connect, State};
 
 received(#stomp_frame{command = <<"SEND">>, headers = Headers, body = Body}, State) ->
-    Msg = emqttd_message:make(stomp, header(<<"destination">>, Headers), iolist_to_binary(Body)),
-    emqttd_pubsub:publish(Msg),
-    {ok, State};
+    Topic = header(<<"destination">>, Headers),
+    Action = fun(State0) ->
+                 emqttd_pubsub:publish(
+                     emqttd_message:make(
+                         stomp, Topic, iolist_to_binary(Body))),
+                 State0
+             end,
+    case header(<<"transaction">>, Headers) of
+        undefined     -> {ok, Action(State)};
+        TransactionId -> add_action(TransactionId, Action, State)
+    end;
 
 received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
             State = #proto_state{subscriptions = Subscriptions}) ->
@@ -128,8 +136,12 @@ received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
 %%
 %% ^@
 received(#stomp_frame{command = <<"ACK">>, headers = Headers}, State) ->
-    %%TODO...
-    {ok, State};
+    Id = header(<<"id">>, Headers),
+    Action = fun(State0) -> ack(Id, State0) end,
+    case header(<<"transaction">>, Headers) of
+        undefined     -> {ok, Action(State)};
+        TransactionId -> add_action(TransactionId, Action, State)
+    end;
 
 %% NACK
 %% id:12345
@@ -137,8 +149,12 @@ received(#stomp_frame{command = <<"ACK">>, headers = Headers}, State) ->
 %%
 %% ^@
 received(#stomp_frame{command = <<"NACK">>, headers = Headers}, State) ->
-    %%TODO...
-    {ok, State};
+    Id = header(<<"id">>, Headers),
+    Action = fun(State0) -> nack(Id, State0) end,
+    case header(<<"transaction">>, Headers) of
+        undefined     -> {ok, Action(State)};
+        TransactionId -> add_action(TransactionId, Action, State)
+    end;
 
 %% BEGIN
 %% transaction:tx1
@@ -174,7 +190,12 @@ received(#stomp_frame{command = <<"COMMIT">>, headers = Headers}, State) ->
 %% ^@
 received(#stomp_frame{command = <<"ABORT">>, headers = Headers}, State) ->
     Id = header(<<"transaction">>, Headers),
-    emqttd_stomp_transaction:abort(Id), {ok, State};
+    case emqttd_stomp_transaction:abort(Id) of
+        ok ->
+            emqttd_stomp_transaction:abort(Id), {ok, State};
+        {error, not_found} ->
+            send(error_frame(["Transaction ", Id, " not found"]), State)
+    end;
 
 received(#stomp_frame{command = <<"DISCONNECT">>, headers = Headers}, State) ->
     send(receipt_frame(header(<<"receipt">>, Headers)), State),
@@ -226,6 +247,18 @@ check_login(Login, Passcode) ->
         {Login, Passcode} -> true;
         {_,     _       } -> false
     end.
+
+add_action(Id, Action, State) ->
+    case emqttd_stomp_transaction:add(Id, Action) of
+        {ok, _}           ->
+            {ok, State};
+        {error, not_found} ->
+            send(error_frame(["Transaction ", Id, " not found"]), State)
+    end.
+
+ack(Id, State) -> State.
+
+nack(Id, State) -> State.
 
 header(Name, Headers) ->
     get_value(Name, Headers).

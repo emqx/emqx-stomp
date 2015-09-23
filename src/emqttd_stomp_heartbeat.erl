@@ -31,6 +31,8 @@
 
 -include("emqttd_stomp.hrl").
 
+-export([start/1]).
+
 -record(heartbeat, {}).
 
 start(Heartbeats) ->

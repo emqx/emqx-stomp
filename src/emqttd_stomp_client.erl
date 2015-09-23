@@ -93,6 +93,10 @@ handle_cast(Msg, State = #state{peername = Peername}) ->
 handle_info(timeout, State) ->
     stop({shutdown, timeout}, State);
 
+handle_info({transaction, {timeout, Id}}, State) ->
+    emqttd_stomp_transaction:timeout(Id),
+    noreply(State);
+
 handle_info({heartbeats, _}, State) ->
     %%TODO:...
     noreply(State);
@@ -101,7 +105,7 @@ handle_info({inet_reply, _Ref, ok}, State) ->
     noreply(State);
 
 handle_info({inet_async, Sock, _Ref, {ok, Bytes}}, State = #state{peername = Peername, socket = Sock}) ->
-    lager:debug("RECV from ~s: ~p", [emqttd_net:format(Peername), Bytes]),
+    lager:debug("RECV from ~s: ~s", [emqttd_net:format(Peername), Bytes]),
     received(Bytes, control_throttle(State #state{await_recv = false}));
 
 handle_info({inet_async, _Sock, _Ref, {error, Reason}}, State) ->

@@ -31,14 +31,14 @@
 
 -include("emqttd_stomp.hrl").
 
--export([start/2, find/1, commit/2, abort/1, timeout/1]).
+-export([start/2, add/2, commit/2, abort/1, timeout/1]).
 
 -record(transaction, {id, actions, tref}).
 
 -define(TIMEOUT, 60000).
 
 start(Id, TimeoutMsg) ->
-    case find(Id) of
+    case get({transaction, Id}) of
         undefined    -> 
             TRef = erlang:send_after(?TIMEOUT, self(), TimeoutMsg),
             Transaction = #transaction{id = Id, actions = [], tref = TRef},
@@ -48,15 +48,19 @@ start(Id, TimeoutMsg) ->
             {error, already_started}
     end.
 
-find(Id) ->
-    get({transaction, Id}).
+add(Id, Action) ->
+    Fun = fun(Transaction = #transaction{actions = Actions}) ->
+            Transaction1 = Transaction#transaction{actions = [Action | Actions]},
+            put({transaction, Id}, Transaction1),
+            {ok, Transaction1}
+          end,
+    with_transaction(Id, Fun).
 
 commit(Id, InitState) ->
     Fun = fun(Transaction = #transaction{actions = Actions}) ->
             done(Transaction),
-            {ok, lists:foldl(fun(Action, State) ->
-                               Action(State)
-                             end,InitState, Actions)}
+            {ok, lists:foldr(fun(Action, State) -> Action(State) end,
+                             InitState, Actions)}
           end,
     with_transaction(Id, Fun).
 
@@ -68,10 +72,11 @@ timeout(Id) ->
 
 done(#transaction{id = Id, tref = TRef}) ->
     erase({transaction, Id}),
-    catch erlang:cancel_timer(TRef).
+    catch erlang:cancel_timer(TRef),
+    ok.
 
 with_transaction(Id, Fun) ->
-    case find(Id) of
+    case get({transaction, Id}) of
         undefined   -> {error, not_found};
         Transaction -> Fun(Transaction)
     end.
