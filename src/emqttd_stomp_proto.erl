@@ -243,7 +243,8 @@ check_login(undefined, _) ->
     application:get_env(emqttd_stomp, allow_anonymous, false);
 check_login(Login, Passcode) ->
     {ok, DefaultUser} = application:get_env(emqttd_stomp, default_user),
-    case {get_value(login, DefaultUser), get_value(passcode, DefaultUser)} of
+    case {list_to_binary(get_value(login, DefaultUser)),
+          list_to_binary(get_value(passcode, DefaultUser))} of
         {Login, Passcode} -> true;
         {_,     _       } -> false
     end.
