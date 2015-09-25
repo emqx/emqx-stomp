@@ -50,7 +50,7 @@
                 parser,
                 proto_state,
                 proto_env,
-                keepalive}).
+                heartbeat}).
 
 start_link(SockArgs, ProtoEnv) ->
     {ok, proc_lib:spawn_link(?MODULE, init, [[SockArgs, ProtoEnv]])}.
@@ -59,6 +59,7 @@ info(CPid) ->
     gen_server:call(CPid, info, infinity).
 
 init([SockArgs = {Transport, Sock, _SockFun}, ProtoEnv]) ->
+    process_flag(trap_exit, true),
     % Transform if ssl.
     {ok, NewSock} = esockd_connection:accept(SockArgs),
     {ok, Peername} = emqttd_net:peername(Sock),
@@ -97,15 +98,24 @@ handle_info({transaction, {timeout, Id}}, State) ->
     emqttd_stomp_transaction:timeout(Id),
     noreply(State);
 
-handle_info({heartbeats, _}, State) ->
-    %%TODO:...
-    noreply(State);
+handle_info({heartbeat, start, {Cx, Cy}}, State = #state{transport = Transport, socket = Socket}) ->
+    Self = self(),
+    Incomming = {Cx, statfun(recv_oct, State), fun() -> Self ! {heartbeat, timeout} end},
+    Outgoing  = {Cy, statfun(send_oct, State), fun() -> Transport:send(Socket, <<$\n>>) end},
+    {ok, HbProc} = emqttd_stomp_heartbeat:start_link(Incomming, Outgoing),
+    noreply(State#state{heartbeat = HbProc});
+
+handle_info({heartbeat, timeout}, State) ->
+    stop({shutdown, heartbeat_timeout}, State);
+
+handle_info({'EXIT', HbProc, Error}, State = #state{heartbeat = HbProc}) ->
+    stop(Error, State);
 
 handle_info({inet_reply, _Ref, ok}, State) ->
     noreply(State);
 
 handle_info({inet_async, Sock, _Ref, {ok, Bytes}}, State = #state{peername = Peername, socket = Sock}) ->
-    lager:debug("RECV from ~s: ~s", [emqttd_net:format(Peername), Bytes]),
+    lager:debug("RECV from ~s: ~p", [emqttd_net:format(Peername), Bytes]),
     received(Bytes, control_throttle(State #state{await_recv = false}));
 
 handle_info({inet_async, _Sock, _Ref, {error, Reason}}, State) ->
@@ -174,8 +184,7 @@ stop(Reason, State) ->
     {stop, Reason, State}.
 
 network_error(Reason, State = #state{peername = Peername}) ->
-    lager:warning("Stomp(~s): MQTT detected network error '~p'",
-                    [emqttd_net:format(Peername), Reason]),
+    lager:warning("Stomp(~s): Network error '~p'", [emqttd_net:format(Peername), Reason]),
     stop({shutdown, Reason}, State).
 
 control_throttle(State = #state{conn_state = Flow,
@@ -193,5 +202,13 @@ run_socket(State = #state{await_recv = true}) ->
 run_socket(State = #state{transport = Transport, socket = Sock}) ->
     Transport:async_recv(Sock, 0, infinity),
     State#state{await_recv = true}.
+
+statfun(Stat, #state{transport = Transport, socket = Socket}) ->
+    fun() ->
+        case Transport:getstat(Socket, [Stat]) of
+            {ok, [{Stat, Val}]} -> {ok, Val};
+            {error, Error}      -> {error, Error}
+        end
+    end.
 
 

@@ -245,8 +245,7 @@ escape(Ch)     -> <<Ch>>.
 
 make(<<"CONNECTED">>, Headers) ->
     #stomp_frame{command = <<"CONNECTED">>,
-                 headers = [{<<"version">>, ?STOMP_VER},
-                            {<<"server">>,  ?STOMP_SERVER} | Headers]};
+                 headers = [{<<"server">>, ?STOMP_SERVER} | Headers]};
 
 make(Command, Headers) ->
     #stomp_frame{command = Command, headers = Headers}.

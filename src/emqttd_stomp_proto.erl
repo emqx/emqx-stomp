@@ -77,7 +77,7 @@ received(#stomp_frame{command = <<"CONNECT">>, headers = Headers}, State = #prot
             case check_login(Login = header(<<"login">>, Headers), header(<<"passcode">>, Headers)) of
                 true ->
                     Heartbeats = header(<<"heart-beat">>, Headers, <<"0,0">>),
-                    emqttd_stomp_heartbeat:start(Heartbeats),
+                    self() ! {heartbeat, start, parse_heartbeats(Heartbeats)},
                     NewState = State#proto_state{connected = true, proto_ver = Version,
                                                  heart_beats = Heartbeats, login = Login},
                     send(connected_frame([{<<"version">>, Version},
@@ -276,6 +276,10 @@ error_frame(Msg) ->
     error_frame([{<<"content-type">>, <<"text/plain">>}], Msg). 
 error_frame(Headers, Msg) ->
     emqttd_stomp_frame:make(<<"ERROR">>, Headers, Msg).
+
+parse_heartbeats(Heartbeats) ->
+    CxCy = re:split(Heartbeats, <<",">>, [{return, list}]),
+    list_to_tuple([list_to_integer(S) || S <- CxCy]).
 
 reverse_heartbeats(Heartbeats) ->
     CxCy = re:split(Heartbeats, <<",">>, [{return, list}]),
