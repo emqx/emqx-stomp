@@ -41,18 +41,16 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          code_change/3, terminate/2]).
 
--record(stomp_client, {connection, peername, peerhost, peerport,
-                       await_recv, conn_state, rate_limit,
-                       parser_fun, proto_state, proto_env,
-                       heartbeat}).
+-record(stomp_client, {connection, connname, peername, peerhost, peerport,
+                       await_recv, conn_state, rate_limit, parser_fun,
+                       proto_state, proto_env, heartbeat}).
 
 -define(INFO_KEYS, [peername, peerhost, peerport, await_recv, conn_state]).
 
 -define(SOCK_STATS, [recv_oct, recv_cnt, send_oct, send_cnt]).
 
 -define(LOG(Level, Format, Args, State),
-            lager:Level("Stomp(~s): " ++ Format, [State#stomp_client.peername | Args])).
-
+            lager:Level("Stomp(~s): " ++ Format, [State#stomp_client.connname | Args])).
 
 start_link(Connection, ProtoEnv) ->
     {ok, proc_lib:spawn_link(?MODULE, init, [[Connection, ProtoEnv]])}.
@@ -65,8 +63,8 @@ init([Connection0, ProtoEnv]) ->
     {ok, Connection} = Connection0:wait(),
     {PeerHost, PeerPort, PeerName} =
     case Connection:peername() of
-        {ok, {Host, Port}} ->
-            {Host, Port, esockd_net:format({Host, Port})};
+        {ok, Peer = {Host, Port}} ->
+            {Host, Port, Peer};
         {error, enotconn} ->
             Connection:fast_close(),
             exit(normal);
@@ -74,6 +72,7 @@ init([Connection0, ProtoEnv]) ->
             Connection:fast_close(),
             exit({shutdown, Reason})
     end,
+    ConnName = esockd_net:format(PeerName),
     SendFun = fun(Data) ->
         try Connection:async_send(Data) of
             true -> ok
@@ -85,6 +84,7 @@ init([Connection0, ProtoEnv]) ->
     ProtoState = emqttd_stomp_proto:init(PeerName, SendFun, ProtoEnv),
     RateLimit = proplists:get_value(rate_limit, Connection:opts()),
     State = run_socket(#stomp_client{connection   = Connection,
+                                     connname     = ConnName,
                                      peername     = PeerName,
                                      peerhost     = PeerHost,
                                      peerport     = PeerPort,
@@ -140,7 +140,7 @@ handle_info(activate_sock, State) ->
 handle_info({inet_async, _Sock, _Ref, {ok, Bytes}}, State) ->
 
     ?LOG(debug, "RECV <- ~p", [Bytes], State),
-    received(Bytes, rate_limit(size(Data), State#stomp_client{await_recv = false}));
+    received(Bytes, rate_limit(size(Bytes), State#stomp_client{await_recv = false}));
 
 handle_info({inet_async, _Sock, _Ref, {error, Reason}}, State) ->
     shutdown(Reason, State);
