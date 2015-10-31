@@ -199,6 +199,7 @@ received(Bytes, State = #stomp_client{parser_fun  = ParserFun,
             end;
         {error, Error} ->
             ?LOG(error, "Framing error - ~s", [Error], State),
+            ?LOG(error, "Bytes: ~p", [Bytes], State),
             shutdown(frame_error, State);
         {'EXIT', Reason} ->
             ?LOG(error, "Parser failed for ~p", [Reason], State),
