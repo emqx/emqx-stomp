@@ -59,7 +59,7 @@
                     subscriptions]).
 
 -define(LOG(Level, Format, Args, State),
-        lager:Level("Stomp(~s): " ++ Format, [State#stomp_proto.peername | Args])).
+        lager:Level("Stomp(~s): " ++ Format, [esockd_net:format(State#stomp_proto.peername) | Args])).
 
 %%------------------------------------------------------------------------------
 %% @doc Init protocol
@@ -70,7 +70,7 @@ init(Peername, SendFun, _Env) ->
 	#stomp_proto{peername = Peername,
                  sendfun  = SendFun}.
 
-info(ProtState) ->
+info(ProtoState) ->
     ?record_to_proplist(stomp_proto, ProtoState, ?INFO_KEYS).
 
 -spec received(stomp_frame(), stomp_proto()) -> {ok, stomp_proto()}
