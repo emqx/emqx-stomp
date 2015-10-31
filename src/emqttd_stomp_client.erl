@@ -139,7 +139,7 @@ handle_info(activate_sock, State) ->
 
 handle_info({inet_async, _Sock, _Ref, {ok, Bytes}}, State) ->
 
-    ?LOG(debug, "RECV <- ~p", [Bytes], State),
+    ?LOG(debug, "RECV ~p", [Bytes], State),
     received(Bytes, rate_limit(size(Bytes), State#stomp_client{await_recv = false}));
 
 handle_info({inet_async, _Sock, _Ref, {error, Reason}}, State) ->

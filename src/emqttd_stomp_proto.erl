@@ -229,7 +229,7 @@ send(Msg = #mqtt_message{topic = Topic, payload = Payload},
 send(Frame, State = #stomp_proto{sendfun = SendFun}) ->
     ?LOG(info, "SEND Frame: ~s", [emqttd_stomp_frame:format(Frame)], State),
     Data = emqttd_stomp_frame:serialize(Frame),
-    ?LOG(debug, "SEND -> ~p", [Data], State),
+    ?LOG(debug, "SEND ~p", [Data], State),
     SendFun(Data),
     {ok, State}.
 
