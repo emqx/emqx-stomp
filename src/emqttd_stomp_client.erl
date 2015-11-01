@@ -212,15 +212,15 @@ reset_parser(State = #stomp_client{proto_env = ProtoEnv}) ->
 
 rate_limit(_Size, State = #stomp_client{rate_limit = undefined}) ->
     run_socket(State);
-rate_limit(Size, State = #stomp_client{rate_limit = Limiter}) ->
-    case esockd_ratelimit:check(Limiter, Size) of
-        {0, Limiter1} ->
+rate_limit(Size, State = #stomp_client{rate_limit = Rl}) ->
+    case Rl:check(Size) of
+        {0, Rl1} ->
             run_socket(State#stomp_client{conn_state = running,
-                                          rate_limit = Limiter1});
-        {Pause, Limiter1} ->
+                                          rate_limit = Rl1});
+        {Pause, Rl1} ->
             ?LOG(error, "Rate limiter pause for ~p", [Size, Pause], State),
             erlang:send_after(Pause, self(), activate_sock),
-            State#stomp_client{conn_state = blocked, rate_limit = Limiter1}    
+            State#stomp_client{conn_state = blocked, rate_limit = Rl1}    
     end.
 
 run_socket(State = #stomp_client{conn_state = blocked}) ->
