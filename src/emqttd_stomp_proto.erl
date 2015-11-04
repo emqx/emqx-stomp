@@ -31,7 +31,9 @@
 
 -include("emqttd_stomp.hrl").
 
--include_lib("emqttd/include/emqttd.hrl").
+-include("../../../include/emqttd.hrl").
+
+-include("../../../include/emqttd_internal.hrl").
 
 -import(proplists, [get_value/2, get_value/3]).
 
@@ -42,7 +44,7 @@
 
 -export([shutdown/2]).
 
--record(proto_state, {peername,
+-record(stomp_proto, {peername,
                       sendfun,
                       connected = false,
                       proto_ver,
@@ -51,7 +53,13 @@
                       login,
                       subscriptions = []}).
 
--type proto_state() :: #proto_state{}.
+-type stomp_proto() :: #stomp_proto{}.
+
+-define(INFO_KEYS, [connected, proto_ver, proto_name, heart_beats, login,
+                    subscriptions]).
+
+-define(LOG(Level, Format, Args, State),
+        lager:Level("Stomp(~s): " ++ Format, [esockd_net:format(State#stomp_proto.peername) | Args])).
 
 %%------------------------------------------------------------------------------
 %% @doc Init protocol
@@ -59,26 +67,27 @@
 %%------------------------------------------------------------------------------
 
 init(Peername, SendFun, _Env) ->
-	#proto_state{peername   = Peername,
-                 sendfun    = SendFun}.
+	#stomp_proto{peername = Peername,
+                 sendfun  = SendFun}.
 
-info(#proto_state{proto_ver = Ver}) ->
-    [{proto_ver, Ver}].
+info(ProtoState) ->
+    ?record_to_proplist(stomp_proto, ProtoState, ?INFO_KEYS).
 
--spec received(stomp_frame(), proto_state()) -> {ok, proto_state()}
-                                              | {error, any(), proto_state()}
-                                              | {stop, any(), proto_state()}.
+-spec received(stomp_frame(), stomp_proto()) -> {ok, stomp_proto()}
+                                              | {error, any(), stomp_proto()}
+                                              | {stop, any(), stomp_proto()}.
 received(Frame = #stomp_frame{command = <<"STOMP">>}, State) ->
     received(Frame#stomp_frame{command = <<"CONNECT">>}, State);
 
-received(#stomp_frame{command = <<"CONNECT">>, headers = Headers}, State = #proto_state{connected = false}) ->
+received(#stomp_frame{command = <<"CONNECT">>, headers = Headers},
+         State = #stomp_proto{connected = false}) ->
     case negotiate_version(header(<<"accept-version">>, Headers)) of
         {ok, Version} ->
             case check_login(Login = header(<<"login">>, Headers), header(<<"passcode">>, Headers)) of
                 true ->
                     Heartbeats = header(<<"heart-beat">>, Headers, <<"0,0">>),
                     self() ! {heartbeat, start, parse_heartbeats(Heartbeats)},
-                    NewState = State#proto_state{connected = true, proto_ver = Version,
+                    NewState = State#stomp_proto{connected = true, proto_ver = Version,
                                                  heart_beats = Heartbeats, login = Login},
                     send(connected_frame([{<<"version">>, Version},
                                           {<<"heart-beat">>, reverse_heartbeats(Heartbeats)}]), NewState);
@@ -90,7 +99,7 @@ received(#stomp_frame{command = <<"CONNECT">>, headers = Headers}, State = #prot
                               {<<"content-type">>, <<"text/plain">>}], Msg), State)
     end;
 
-received(#stomp_frame{command = <<"CONNECT">>}, State = #proto_state{connected = true}) ->
+received(#stomp_frame{command = <<"CONNECT">>}, State = #stomp_proto{connected = true}) ->
     {error, unexpected_connect, State};
 
 received(#stomp_frame{command = <<"SEND">>, headers = Headers, body = Body}, State) ->
@@ -107,7 +116,7 @@ received(#stomp_frame{command = <<"SEND">>, headers = Headers, body = Body}, Sta
     end;
 
 received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
-            State = #proto_state{subscriptions = Subscriptions}) ->
+            State = #stomp_proto{subscriptions = Subscriptions}) ->
     Id    = header(<<"id">>, Headers),
     Topic = header(<<"destination">>, Headers),
     Ack   = header(<<"ack">>, Headers, <<"auto">>),
@@ -116,16 +125,16 @@ received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
             {ok, State};
         false ->
             emqttd_pubsub:subscribe(Topic, qos1),
-            {ok, State#proto_state{subscriptions = [{Id, Topic, Ack}|Subscriptions]}}
+            {ok, State#stomp_proto{subscriptions = [{Id, Topic, Ack}|Subscriptions]}}
     end;
 
 received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
-            State = #proto_state{subscriptions = Subscriptions}) ->
+            State = #stomp_proto{subscriptions = Subscriptions}) ->
     Id = header(<<"id">>, Headers),
     case lists:keyfind(Id, 1, Subscriptions) of
         {Id, Topic, _Ack} ->
             emqttd_pubsub:unsubscribe(Topic),
-            {ok, State#proto_state{subscriptions = lists:keydelete(Id, 1, Subscriptions)}};
+            {ok, State#stomp_proto{subscriptions = lists:keydelete(Id, 1, Subscriptions)}};
         false ->
             {ok, State}
     end;
@@ -202,7 +211,7 @@ received(#stomp_frame{command = <<"DISCONNECT">>, headers = Headers}, State) ->
     {stop, normal, State}.
 
 send(Msg = #mqtt_message{topic = Topic, payload = Payload},
-     State = #proto_state{subscriptions = Subscriptions}) ->
+     State = #stomp_proto{subscriptions = Subscriptions}) ->
     case lists:keyfind(Topic, 2, Subscriptions) of
         {Id, Topic, _Ack} ->
             Headers = [{<<"subscription">>, Id},
@@ -217,10 +226,10 @@ send(Msg = #mqtt_message{topic = Topic, payload = Payload},
             lager:error("Stomp dropped: ~p", [Msg])
     end;
 
-send(Frame, State = #proto_state{peername = Peername, sendfun = SendFun}) ->
-    lager:info("SEND Frame: ~s", [emqttd_stomp_frame:format(Frame)]),
+send(Frame, State = #stomp_proto{sendfun = SendFun}) ->
+    ?LOG(info, "SEND Frame: ~s", [emqttd_stomp_frame:format(Frame)], State),
     Data = emqttd_stomp_frame:serialize(Frame),
-    lager:debug("SENT to ~s: ~p", [emqttd_net:format(Peername), Data]),
+    ?LOG(debug, "SEND ~p", [Data], State),
     SendFun(Data),
     {ok, State}.
 
