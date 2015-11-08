@@ -218,7 +218,7 @@ rate_limit(Size, State = #stomp_client{rate_limit = Rl}) ->
             run_socket(State#stomp_client{conn_state = running,
                                           rate_limit = Rl1});
         {Pause, Rl1} ->
-            ?LOG(error, "Rate limiter pause for ~p", [Size, Pause], State),
+            ?LOG(error, "Rate limiter pause for ~p", [Pause], State),
             erlang:send_after(Pause, self(), activate_sock),
             State#stomp_client{conn_state = blocked, rate_limit = Rl1}    
     end.
