@@ -124,7 +124,7 @@ received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
         {Id, Topic, Ack} ->
             {ok, State};
         false ->
-            emqttd_pubsub:subscribe(Topic, qos1),
+            emqttd_pubsub:subscribe({Topic, qos1}),
             {ok, State#stomp_proto{subscriptions = [{Id, Topic, Ack}|Subscriptions]}}
     end;
 
