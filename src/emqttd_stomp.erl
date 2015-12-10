@@ -19,15 +19,15 @@
 %%% OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 %%% SOFTWARE.
 %%%-----------------------------------------------------------------------------
-%%% @doc
-%%% Stomp Protocol
+%%% @doc Stomp Protocol
 %%%
-%%% @end
+%%% @author Feng Lee <feng@emqtt.io>
 %%%-----------------------------------------------------------------------------
-
 -module(emqttd_stomp).
 
 -export([start_listeners/0, stop_listeners/0]).
+
+-define(APP, ?MODULE).
 
 -define(SOCKOPTS, [binary,
                    {packet,    raw},
@@ -36,11 +36,11 @@
                    {nodelay,   true}]).
 
 start_listeners() ->
-    {ok, Listeners} = application:get_env(emqttd_stomp, listeners),
+    {ok, Listeners} = application:get_env(?APP, listeners),
     lists:foreach(fun start_listener/1, Listeners).
 
 start_listener({Name, Port, Opts}) ->
-    {ok, Env} = application:get_env(emqttd_stomp, frame),
+    {ok, Env} = application:get_env(?APP, frame),
     MFArgs = {emqttd_stomp_client, start_link, [Env]},
     esockd:open(Name, Port, merge_sockopts(Opts), MFArgs).
 
@@ -49,7 +49,7 @@ merge_sockopts(Opts) ->
     emqttd_opts:merge(Opts, [{sockopts, SockOpts}]).
 
 stop_listeners() ->
-    {ok, Listeners} = application:get_env(emqttd_stomp, listeners),
+    {ok, Listeners} = application:get_env(?APP, listeners),
     lists:foreach(fun stop_listener/1, Listeners).
 
 stop_listener({Name, Port, _Opts}) ->

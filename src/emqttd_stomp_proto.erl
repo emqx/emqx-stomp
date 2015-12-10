@@ -19,15 +19,11 @@
 %%% OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 %%% SOFTWARE.
 %%%-----------------------------------------------------------------------------
-%%% @doc
-%%% Stomp protocol handler.
+%%% @doc Stomp Protocol Processor.
 %%%
-%%% @end
+%%% @author Feng Lee <feng@emqtt.io>
 %%%-----------------------------------------------------------------------------
-
 -module(emqttd_stomp_proto).
-
--author("Feng Lee <feng@emqtt.io>").
 
 -include("emqttd_stomp.hrl").
 
