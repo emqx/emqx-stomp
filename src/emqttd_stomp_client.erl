@@ -19,14 +19,13 @@
 %%% OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 %%% SOFTWARE.
 %%%-----------------------------------------------------------------------------
-%%% @doc
-%%% Stomp client connection
+%%% @doc Stomp Client Connection
 %%%
-%%% @end
+%%% @author Feng Lee <feng@emqtt.io>
 %%%-----------------------------------------------------------------------------
 -module(emqttd_stomp_client).
 
--author("Feng Lee <feng@emqtt.io>").
+-behaviour(gen_server).
 
 -include("emqttd_stomp.hrl").
 
@@ -34,8 +33,6 @@
 
 %% API Function Exports
 -export([start_link/2, info/1]).
-
--behaviour(gen_server).
 
 %% gen_server Function Exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -138,7 +135,6 @@ handle_info(activate_sock, State) ->
     noreply(run_socket(State#stomp_client{conn_state = running}));
 
 handle_info({inet_async, _Sock, _Ref, {ok, Bytes}}, State) ->
-
     ?LOG(debug, "RECV ~p", [Bytes], State),
     received(Bytes, rate_limit(size(Bytes), State#stomp_client{await_recv = false}));
 
@@ -157,7 +153,7 @@ handle_info({dispatch, _Topic, Msg}, State = #stomp_client{proto_state = ProtoSt
 
 handle_info(Info, State) ->
     ?LOG(critical, "Unexpected info: ~p", [Info], State),
-    {noreply, State}.
+    noreply(State).
 
 terminate(Reason, State = #stomp_client{connection  = Connection,
                                         proto_state = ProtoState}) ->
