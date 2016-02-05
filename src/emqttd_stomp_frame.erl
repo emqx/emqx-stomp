@@ -1,81 +1,75 @@
-%%%-----------------------------------------------------------------------------
-%%% @Copyright (C) 2015, Feng Lee <feng@emqtt.io>
-%%%
-%%% Permission is hereby granted, free of charge, to any person obtaining a copy
-%%% of this software and associated documentation files (the "Software"), to deal
-%%% in the Software without restriction, including without limitation the rights
-%%% to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-%%% copies of the Software, and to permit persons to whom the Software is
-%%% furnished to do so, subject to the following conditions:
-%%%
-%%% The above copyright notice and this permission notice shall be included in all
-%%% copies or substantial portions of the Software.
-%%%
-%%% THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-%%% IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-%%% FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-%%% AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-%%% LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-%%% OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-%%% SOFTWARE.
-%%%-----------------------------------------------------------------------------
-%%% @doc
-%%%
-%%% Stomp Frame:
-%%%
-%%% COMMAND
-%%% header1:value1
-%%% header2:value2
-%%%
-%%% Body^@
-%%%
-%%% @end
-%%%
-%%% @author Feng Lee <feng@emqtt.io>
-%%%-----------------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% Copyright (c) 2015-2016 Feng Lee <feng@emqtt.io>.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%--------------------------------------------------------------------
+
+%% @doc
+%%
+%% Stomp Frame:
+%%
+%% COMMAND
+%% header1:value1
+%% header2:value2
+%%
+%% Body^@
+%%
+%% @end
+%%
+%% @author Feng Lee <feng@emqtt.io>
 -module(emqttd_stomp_frame).
 
-%%%-----------------------------------------------------------------------------
-%%% Stomp 1.2 BNF grammar:
-%%%
-%%% NULL                = <US-ASCII null (octet 0)>
-%%% LF                  = <US-ASCII line feed (aka newline) (octet 10)>
-%%% CR                  = <US-ASCII carriage return (octet 13)>
-%%% EOL                 = [CR] LF 
-%%% OCTET               = <any 8-bit sequence of data>
-%%%
-%%% frame-stream        = 1*frame
-%%%
-%%% frame               = command EOL
-%%%                       *( header EOL )
-%%%                       EOL
-%%%                       *OCTET
-%%%                       NULL
-%%%                       *( EOL )
-%%%
-%%% command             = client-command | server-command
-%%%
-%%% client-command      = "SEND"
-%%%                       | "SUBSCRIBE"
-%%%                       | "UNSUBSCRIBE"
-%%%                       | "BEGIN"
-%%%                       | "COMMIT"
-%%%                       | "ABORT"
-%%%                       | "ACK"
-%%%                       | "NACK"
-%%%                       | "DISCONNECT"
-%%%                       | "CONNECT"
-%%%                       | "STOMP"
-%%%
-%%% server-command      = "CONNECTED"
-%%%                       | "MESSAGE"
-%%%                       | "RECEIPT"
-%%%                       | "ERROR"
-%%%
-%%% header              = header-name ":" header-value
-%%% header-name         = 1*<any OCTET except CR or LF or ":">
-%%% header-value        = *<any OCTET except CR or LF or ":">
-%%%-----------------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% Stomp 1.2 BNF grammar:
+%%
+%% NULL                = <US-ASCII null (octet 0)>
+%% LF                  = <US-ASCII line feed (aka newline) (octet 10)>
+%% CR                  = <US-ASCII carriage return (octet 13)>
+%% EOL                 = [CR] LF 
+%% OCTET               = <any 8-bit sequence of data>
+%%
+%% frame-stream        = 1*frame
+%%
+%% frame               = command EOL
+%%                       *( header EOL )
+%%                       EOL
+%%                       *OCTET
+%%                       NULL
+%%                       *( EOL )
+%%
+%% command             = client-command | server-command
+%%
+%% client-command      = "SEND"
+%%                       | "SUBSCRIBE"
+%%                       | "UNSUBSCRIBE"
+%%                       | "BEGIN"
+%%                       | "COMMIT"
+%%                       | "ABORT"
+%%                       | "ACK"
+%%                       | "NACK"
+%%                       | "DISCONNECT"
+%%                       | "CONNECT"
+%%                       | "STOMP"
+%%
+%% server-command      = "CONNECTED"
+%%                       | "MESSAGE"
+%%                       | "RECEIPT"
+%%                       | "ERROR"
+%%
+%% header              = header-name ":" header-value
+%% header-name         = 1*<any OCTET except CR or LF or ":">
+%% header-value        = *<any OCTET except CR or LF or ":">
+%%--------------------------------------------------------------------
 
 -include("emqttd_stomp.hrl").
 
@@ -99,10 +93,7 @@
                                   | {more, parser()}
                                   | {error, any()}).
 
-%%------------------------------------------------------------------------------
 %% @doc Initialize a parser
-%% @end
-%%------------------------------------------------------------------------------
 -spec parser([proplists:property()]) -> parser().
 parser(Opts) ->
     fun(Bin) -> parse(none, Bin, #parser_state{limit = limit(Opts)}) end.
@@ -115,10 +106,7 @@ limit(Opts) ->
 g(Key, Opts, Val) ->
     proplists:get_value(Key, Opts, Val).
 
-%%------------------------------------------------------------------------------
 %% @doc Parse frame
-%% @end
-%%------------------------------------------------------------------------------
 -spec parse(Phase :: atom(), binary(), #parser_state{}) ->
     {ok, stomp_frame(), binary()} | {more, parser()} | {error, any()}.
 
@@ -231,17 +219,8 @@ escape(?BSL)   -> <<?BSL, ?BSL>>;
 escape(?COLON) -> <<?BSL, $c>>;
 escape(Ch)     -> <<Ch>>.
 
-%%------------------------------------------------------------------------------
-%% @doc Header
-%% @end
-%%------------------------------------------------------------------------------
 
-
-%%------------------------------------------------------------------------------
 %% @doc Make a frame
-%% @end
-%%------------------------------------------------------------------------------
-
 make(<<"CONNECTED">>, Headers) ->
     #stomp_frame{command = <<"CONNECTED">>,
                  headers = [{<<"server">>, ?STOMP_SERVER} | Headers]};
@@ -252,10 +231,6 @@ make(Command, Headers) ->
 make(Command, Headers, Body) ->
     #stomp_frame{command = Command, headers = Headers, body = Body}.
 
-%%------------------------------------------------------------------------------
 %% @doc Format a frame
-%% @end
-%%------------------------------------------------------------------------------
-format(Frame) ->
-    serialize(Frame).
+format(Frame) -> serialize(Frame).
 
