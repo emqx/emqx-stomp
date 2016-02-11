@@ -15,7 +15,6 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp Client Connection
-%% @author Feng Lee <feng@emqtt.io>
 -module(emqttd_stomp_client).
 
 -behaviour(gen_server).

@@ -15,7 +15,6 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp Heartbeat.
-%% @author Feng Lee <feng@emqtt.io>
 -module(emqttd_stomp_heartbeat).
 
 -include("emqttd_stomp.hrl").

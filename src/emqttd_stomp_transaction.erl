@@ -15,7 +15,6 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp Transaction
-%% @author Feng Lee <feng@emqtt.io>
 -module(emqttd_stomp_transaction).
 
 -include("emqttd_stomp.hrl").

@@ -15,7 +15,6 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp Protocol
-%% @author Feng Lee <feng@emqtt.io>
 -module(emqttd_stomp).
 
 -export([start_listeners/0, stop_listeners/0]).

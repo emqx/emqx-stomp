@@ -15,7 +15,6 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp Protocol Processor.
-%% @author Feng Lee <feng@emqtt.io>
 -module(emqttd_stomp_proto).
 
 -include("emqttd_stomp.hrl").

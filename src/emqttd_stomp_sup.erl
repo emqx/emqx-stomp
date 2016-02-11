@@ -15,7 +15,6 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp supervisor
-%% @author Feng Lee <feng@emqtt.io>
 -module(emqttd_stomp_sup).
 
 -behaviour(supervisor).

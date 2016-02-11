@@ -15,7 +15,6 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp Application
-%% @author Feng Lee <feng@emqtt.io>
 -module(emqttd_stomp_app).
 
 -behaviour(application).

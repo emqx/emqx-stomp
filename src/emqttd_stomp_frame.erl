@@ -25,8 +25,7 @@
 %% Body^@
 %%
 %% @end
-%%
-%% @author Feng Lee <feng@emqtt.io>
+
 -module(emqttd_stomp_frame).
 
 %%--------------------------------------------------------------------
