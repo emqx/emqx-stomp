@@ -89,7 +89,7 @@ received(#stomp_frame{command = <<"CONNECT">>}, State = #stomp_proto{connected =
 received(#stomp_frame{command = <<"SEND">>, headers = Headers, body = Body}, State) ->
     Topic = header(<<"destination">>, Headers),
     Action = fun(State0) ->
-                 emqttd_pubsub:publish(
+                 emqttd:publish(
                      emqttd_message:make(
                          stomp, Topic, iolist_to_binary(Body))),
                  State0
@@ -108,7 +108,7 @@ received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
         {Id, Topic, Ack} ->
             {ok, State};
         false ->
-            emqttd_pubsub:subscribe({Topic, qos1}),
+            emqttd:subscribe(Topic),
             {ok, State#stomp_proto{subscriptions = [{Id, Topic, Ack}|Subscriptions]}}
     end;
 
@@ -117,7 +117,7 @@ received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
     Id = header(<<"id">>, Headers),
     case lists:keyfind(Id, 1, Subscriptions) of
         {Id, Topic, _Ack} ->
-            emqttd_pubsub:unsubscribe(Topic),
+            emqttd:unsubscribe(Topic),
             {ok, State#stomp_proto{subscriptions = lists:keydelete(Id, 1, Subscriptions)}};
         false ->
             {ok, State}
