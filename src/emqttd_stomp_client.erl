@@ -62,11 +62,12 @@ init([Connection0, ProtoEnv]) ->
             exit({shutdown, Reason})
     end,
     ConnName = esockd_net:format(PeerName),
+    Self = self(),
     SendFun = fun(Data) ->
         try Connection:async_send(Data) of
             true -> ok
         catch
-            error:Error -> exit({shutdown, Error})
+            error:Error -> Self ! {shutdown, Error}
         end
     end,
     ParserFun = emqttd_stomp_frame:parser(ProtoEnv),
@@ -105,6 +106,9 @@ handle_cast(Msg, State) ->
 
 handle_info(timeout, State) ->
     shutdown(idle_timeout, State);
+
+handle_info({shutdown, Error}, State) ->
+    shutdown(Error, State);
 
 handle_info({transaction, {timeout, Id}}, State) ->
     emqttd_stomp_transaction:timeout(Id),
