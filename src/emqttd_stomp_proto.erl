@@ -19,9 +19,9 @@
 
 -include("emqttd_stomp.hrl").
 
--include("../../../include/emqttd.hrl").
+-include_lib("emqttd/include/emqttd.hrl").
 
--include("../../../include/emqttd_internal.hrl").
+-include_lib("emqttd/include/emqttd_internal.hrl").
 
 -import(proplists, [get_value/2, get_value/3]).
 

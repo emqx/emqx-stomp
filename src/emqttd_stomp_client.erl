@@ -21,7 +21,7 @@
 
 -include("emqttd_stomp.hrl").
 
--include("../../../include/emqttd_internal.hrl").
+-include_lib("emqttd/include/emqttd_internal.hrl").
 
 %% API Function Exports
 -export([start_link/2, info/1]).
