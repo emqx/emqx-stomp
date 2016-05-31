@@ -1,12 +1,13 @@
 
-## emqttd_stomp
+emqttd_stomp
+============
 
 The plugin adds STOMP 1.0/1.1/1.2 protocol support to the emqttd broker.
 
 The STOMP clients could pub/sub with the MQTT topics, and talk with the MQTT clients!
 
-
-## Build
+Build
+-----
 
 Git submodule the plugin to 'emqttd/plugins' folder.
 
@@ -16,8 +17,8 @@ git submodule add https://github.com/emqtt/emqttd_stomp.git plugins/emqttd_stomp
 make && make dist
 ```
 
-
-## Configure
+Configure
+---------
 
 **The default port is 61613.**
 
@@ -53,14 +54,15 @@ Plugin config file: etc/plugin.config.
 
 ```
 
-## Load
+Load
+----
 
 ```
 ./bin/emqttd_ctl plugins load emqttd_stomp
 ```
 
-## Author
+Author
+------
 
-Contact feng@emqtt.io if any issues.
-
+Feng Lee <feng@emqtt.io>
 
