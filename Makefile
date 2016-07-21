@@ -1,10 +1,11 @@
 PROJECT = emqttd_stomp
 PROJECT_DESCRIPTION = Stomp Protocol Plugin for emqttd broker
-PROJECT_VERSION = 1.1
+PROJECT_VERSION = 2.0
 
-DEPS = emqttd
+DEPS = gen_conf emqttd
 
-dep_emqttd = git https://github.com/emqtt/emqttd plus
+dep_gen_conf = git https://github.com/emqtt/gen_conf
+dep_emqttd   = git https://github.com/emqtt/emqttd plus
 
 ERLC_OPTS += +'{parse_transform, lager_transform}'
 
