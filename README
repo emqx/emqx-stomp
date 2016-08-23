@@ -9,7 +9,7 @@ The STOMP clients could pub/sub with the MQTT topics, and talk with the MQTT cli
 Config
 ------
 
-etc/emqttd_stomp.config
+etc/emqttd_stomp.conf
 
 Load
 -----
