@@ -19,9 +19,9 @@
 
 -include("emqttd_stomp.hrl").
 
--include("../../../include/emqttd.hrl").
+-include_lib("emqttd/include/emqttd.hrl").
 
--include("../../../include/emqttd_internal.hrl").
+-include_lib("emqttd/include/emqttd_internal.hrl").
 
 -import(proplists, [get_value/2, get_value/3]).
 
@@ -233,9 +233,9 @@ negotiate_version(Ver, [_|T]) ->
     negotiate_version(Ver, T).
 
 check_login(undefined, _) ->
-    application:get_env(emqttd_stomp, allow_anonymous, false);
+    gen_conf:value(emqttd_stomp, allow_anonymous, false);
 check_login(Login, Passcode) ->
-    {ok, DefaultUser} = application:get_env(emqttd_stomp, default_user),
+    {ok, DefaultUser} = gen_conf:value(emqttd_stomp, default_user),
     case {list_to_binary(get_value(login, DefaultUser)),
           list_to_binary(get_value(passcode, DefaultUser))} of
         {Login, Passcode} -> true;

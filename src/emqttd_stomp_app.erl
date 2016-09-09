@@ -27,6 +27,7 @@
 %%--------------------------------------------------------------------
 
 start(_StartType, _StartArgs) ->
+    gen_conf:init(emqttd_stomp),
     {ok, Sup} = emqttd_stomp_sup:start_link(),
     emqttd_stomp:start_listeners(),
     {ok, Sup}.
