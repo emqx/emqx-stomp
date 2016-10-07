@@ -39,6 +39,6 @@ merge_sockopts(Opts) ->
     emqttd_opts:merge(Opts, [{sockopts, SockOpts}]).
 
 stop_listener() ->
-    {ok, {Name, ListenOn, Opts}} = start_listenerapplication:get_env(?APP, listener),
+    {ok, {Name, ListenOn, _Opts}} = start_listenerapplication:get_env(?APP, listener),
     esockd:close({Name, ListenOn}).
 
