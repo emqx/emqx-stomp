@@ -13,3 +13,4 @@ emqttd_stomp.d
 ct.coverdata
 logs/
 test/ct.cover.spec
+data/

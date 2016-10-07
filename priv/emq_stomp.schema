@@ -63,9 +63,8 @@ end}.
 ]}.
 
 {translation, "emq_stomp.listener", fun(Conf) ->
-  Handler = cuttlefish:conf_get("emq.stomp.listener.handler", Conf),
   Port = cuttlefish:conf_get("emq.stomp.listener.port", Conf),
   Acceptors = cuttlefish:conf_get("emq.stomp.listener.acceptors", Conf),
   MaxClients = cuttlefish:conf_get("emq.stomp.listener.max_clients", Conf),
-  [{Handler, Port, [{acceptors, Acceptors}, {max_clients, MaxClients}]}]
+  {emq_stomp, Port, [{acceptors, Acceptors}, {max_clients, MaxClients}]}
 end}.
