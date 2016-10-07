@@ -16,5 +16,5 @@ include erlang.mk
 
 app:: rebar.config
 
-#app.config::
-#    cuttlefish -l info -e etc/ -c etc/emq_stomp.conf -i priv/emq_stomp.schema -d .data
+app.config::
+	cuttlefish -l info -e etc/ -c etc/emq_stomp.conf -i priv/emq_stomp.schema -d .data
