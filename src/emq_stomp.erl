@@ -15,7 +15,7 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp Protocol
--module(emqttd_stomp).
+-module(emq_stomp).
 
 -export([start_listeners/0, stop_listeners/0]).
 
@@ -28,11 +28,11 @@
                    {nodelay,   true}]).
 
 start_listeners() ->
-    lists:foreach(fun start_listener/1, gen_conf:list(?APP, listener)).
+    lists:foreach(fun start_listener/1, application:get_env(?APP, listener, [])).
 
-start_listener({listener, Name, ListenOn, Opts}) ->
-    {ok, Env} = gen_conf:value(?APP, frame),
-    MFArgs = {emqttd_stomp_client, start_link, [Env]},
+start_listener({Name, ListenOn, Opts}) ->
+    {ok, Env} = application:get_env(?APP, frame),
+    MFArgs = {emq_stomp_client, start_link, [Env]},
     esockd:open(Name, ListenOn, merge_sockopts(Opts), MFArgs).
 
 merge_sockopts(Opts) ->
@@ -40,7 +40,7 @@ merge_sockopts(Opts) ->
     emqttd_opts:merge(Opts, [{sockopts, SockOpts}]).
 
 stop_listeners() ->
-    lists:foreach(fun stop_listener/1, gen_conf:list(?APP, listener)).
+    lists:foreach(fun stop_listener/1, application:get_env(?APP, listener, [])).
 
 stop_listener({Name, ListenOn, _Opts}) ->
     esockd:close({Name, ListenOn}).

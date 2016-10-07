@@ -14,31 +14,23 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 
-%% @doc Stomp supervisor
--module(emqttd_stomp_sup).
+%% @doc Stomp Application
+-module(emq_stomp_app).
 
--behaviour(supervisor).
+-behaviour(application).
 
-%% API
--export([start_link/0]).
-
-%% Supervisor callbacks
--export([init/1]).
-
-%% Helper macro for declaring children of supervisor
--define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
+%% Application callbacks
+-export([start/2, stop/1]).
 
 %%--------------------------------------------------------------------
-%% API functions
+%% Application callbacks
 %%--------------------------------------------------------------------
 
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start(_StartType, _StartArgs) ->
+    {ok, Sup} = emq_stomp_sup:start_link(),
+    emq_stomp:start_listeners(),
+    {ok, Sup}.
 
-%%--------------------------------------------------------------------
-%% Supervisor callbacks
-%%--------------------------------------------------------------------
-
-init([]) ->
-    {ok, { {one_for_all, 5, 10}, []} }.
+stop(_State) ->
+    emq_stomp:stop_listeners().
 

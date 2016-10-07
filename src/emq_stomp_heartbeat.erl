@@ -15,9 +15,9 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp Heartbeat.
--module(emqttd_stomp_heartbeat).
+-module(emq_stomp_heartbeat).
 
--include("emqttd_stomp.hrl").
+-include("emq_stomp.hrl").
 
 -export([start_link/2, stop/1]).
 
