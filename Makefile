@@ -1,11 +1,9 @@
 PROJECT = emq_stomp
-PROJECT_DESCRIPTION = Stomp Protocol Plugin for EMQ broker
+PROJECT_DESCRIPTION = Stomp Protocol Plugin for EMQ 3.0 broker
 PROJECT_VERSION = 3.0
 
-BUILD_DEPS = emqttd
-dep_emqttd = git https://github.com/emqtt/emqttd master
-
-TEST_DEPS = cuttlefish
+BUILD_DEPS = emqttd cuttlefish
+dep_emqttd     = git https://github.com/emqtt/emqttd master
 dep_cuttlefish = git https://github.com/basho/cuttlefish master
 
 ERLC_OPTS += +'{parse_transform, lager_transform}'
