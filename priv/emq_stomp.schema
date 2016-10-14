@@ -42,14 +42,9 @@ end}.
 end}.
 
 
-{mapping, "stomp.listener.handler", "emq_stomp.listener", [
-  {default, emqttd_stomp},
-  {datatype, atom}
-]}.
-
-{mapping, "stomp.listener.port", "emq_stomp.listener", [
+{mapping, "stomp.listener", "emq_stomp.listener", [
   {default, 61613},
-  {datatype, integer}
+  {datatype, [integer, ip]}
 ]}.
 
 {mapping, "stomp.listener.acceptors", "emq_stomp.listener", [
@@ -63,9 +58,9 @@ end}.
 ]}.
 
 {translation, "emq_stomp.listener", fun(Conf) ->
-  Port = cuttlefish:conf_get("stomp.listener.port", Conf),
+  Port = cuttlefish:conf_get("stomp.listener", Conf),
   Acceptors = cuttlefish:conf_get("stomp.listener.acceptors", Conf),
   MaxClients = cuttlefish:conf_get("stomp.listener.max_clients", Conf),
-  {stomp, Port, [{acceptors, Acceptors}, {max_clients, MaxClients}]}
+  {Port, [{acceptors, Acceptors}, {max_clients, MaxClients}]}
 end}.
 

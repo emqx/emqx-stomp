@@ -29,16 +29,16 @@
 
 
 start_listener() ->
-    {ok, {Name, ListenOn, Opts}} = start_listenerapplication:get_env(?APP, listener),
+    {ok, {Port, Opts}} = application:get_env(?APP, listener),
     {ok, Env} = application:get_env(?APP, frame),
     MFArgs = {emq_stomp_client, start_link, [Env]},
-    esockd:open(Name, ListenOn, merge_sockopts(Opts), MFArgs).
+    esockd:open(stomp, Port, merge_sockopts(Opts), MFArgs).
 
 merge_sockopts(Opts) ->
     SockOpts = emqttd_opts:merge(?SOCKOPTS, proplists:get_value(sockopts, Opts, [])),
     emqttd_opts:merge(Opts, [{sockopts, SockOpts}]).
 
 stop_listener() ->
-    {ok, {Name, ListenOn, _Opts}} = start_listenerapplication:get_env(?APP, listener),
-    esockd:close({Name, ListenOn}).
+    {ok, {Port, _Opts}} = start_listenerapplication:get_env(?APP, listener),
+    esockd:close({stomp, Port}).
 
