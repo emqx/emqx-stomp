@@ -1,0 +1,66 @@
+{mapping, "stomp.default_user.login", "emq_stomp.default_user", [
+  {default, "guest"},
+  {datatype, string}
+]}.
+
+{mapping, "stomp.default_user.passcode", "emq_stomp.default_user", [
+  {default, "guest"},
+  {datatype, string}
+]}.
+
+{translation, "emq_stomp.default_user", fun(Conf) ->
+  Login = cuttlefish:conf_get("stomp.default_user.login", Conf),
+  Passcode = cuttlefish:conf_get("stomp.default_user.passcode", Conf),
+  [{login, Login}, {passcode, Passcode}]
+end}.
+
+{mapping, "stomp.allow_anonymous", "emq_stomp.allow_anonymous", [
+  {default, true},
+  {datatype, {enum, [true, false]}}
+]}.
+
+{mapping, "stomp.frame.max_headers", "emq_stomp.frame", [
+  {default, 10},
+  {datatype, integer}
+]}.
+
+{mapping, "stomp.frame.max_header_length", "emq_stomp.frame", [
+  {default, 1024},
+  {datatype, integer}
+]}.
+
+{mapping, "stomp.frame.max_body_length", "emq_stomp.frame", [
+  {default, 8192},
+  {datatype, integer}
+]}.
+
+{translation, "emq_stomp.frame", fun(Conf) ->
+  MaxHeaders = cuttlefish:conf_get("stomp.frame.max_headers", Conf),
+  MaxHeaderLength = cuttlefish:conf_get("stomp.frame.max_header_length", Conf),
+  MaxBodyLength = cuttlefish:conf_get("stomp.frame.max_body_length", Conf),
+  [{max_headers, MaxHeaders}, {max_header_length, MaxHeaderLength}, {max_body_length, MaxBodyLength}]
+end}.
+
+
+{mapping, "stomp.listener", "emq_stomp.listener", [
+  {default, 61613},
+  {datatype, [integer, ip]}
+]}.
+
+{mapping, "stomp.listener.acceptors", "emq_stomp.listener", [
+  {default, 4},
+  {datatype, integer}
+]}.
+
+{mapping, "stomp.listener.max_clients", "emq_stomp.listener", [
+  {default, 512},
+  {datatype, integer}
+]}.
+
+{translation, "emq_stomp.listener", fun(Conf) ->
+  Port = cuttlefish:conf_get("stomp.listener", Conf),
+  Acceptors = cuttlefish:conf_get("stomp.listener.acceptors", Conf),
+  MaxClients = cuttlefish:conf_get("stomp.listener.max_clients", Conf),
+  {Port, [{acceptors, Acceptors}, {max_clients, MaxClients}]}
+end}.
+
