@@ -35,8 +35,8 @@ start_listener() ->
     esockd:open(stomp, Port, merge_sockopts(Opts), MFArgs).
 
 merge_sockopts(Opts) ->
-    SockOpts = emqttd_opts:merge(?SOCKOPTS, proplists:get_value(sockopts, Opts, [])),
-    emqttd_opts:merge(Opts, [{sockopts, SockOpts}]).
+    SockOpts = emqttd_misc:merge_opts(?SOCKOPTS, proplists:get_value(sockopts, Opts, [])),
+    emqttd_misc:merge_opts(Opts, [{sockopts, SockOpts}]).
 
 stop_listener() ->
     {ok, {Port, _Opts}} = start_listenerapplication:get_env(?APP, listener),
