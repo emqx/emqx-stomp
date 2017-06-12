@@ -207,7 +207,8 @@ send(Msg = #mqtt_message{topic = Topic, payload = Payload},
                                  body = Payload},
             send(Frame, State);
         false ->
-            lager:error("Stomp dropped: ~p", [Msg])
+            lager:error("Stomp dropped: ~p", [Msg]),
+            {error, dropped, State}
     end;
 
 send(Frame, State = #stomp_proto{sendfun = SendFun}) ->
