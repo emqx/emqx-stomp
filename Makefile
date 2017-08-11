@@ -2,6 +2,9 @@ PROJECT = emq_stomp
 PROJECT_DESCRIPTION = Stomp Protocol Plugin
 PROJECT_VERSION = 2.3
 
+DEPS = jwt clique
+dep_clique  = git https://github.com/turtleDeng/clique
+
 BUILD_DEPS = emqttd cuttlefish
 dep_emqttd = git https://github.com/emqtt/emqttd develop
 dep_cuttlefish = git https://github.com/emqtt/cuttlefish
