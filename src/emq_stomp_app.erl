@@ -29,8 +29,10 @@
 start(_StartType, _StartArgs) ->
     {ok, Sup} = emq_stomp_sup:start_link(),
     emq_stomp:start_listener(),
+    emq_stomp_config:register(),
     {ok, Sup}.
 
 stop(_State) ->
-    emq_stomp:stop_listener().
+    emq_stomp:stop_listener(),
+    emq_stomp_config:unregister().
 
