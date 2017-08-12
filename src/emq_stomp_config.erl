@@ -41,8 +41,6 @@ register_formatter() ->
     [clique:register_formatter(cuttlefish_variable:tokenize(Key), 
      fun formatter_callback/2) || Key <- keys() -- Ignore].
 
-formatter_callback([_, "listener"], {Port, _Params}) ->
-    Port;
 formatter_callback([_, "listener", Key], {_Port, Params}) ->
     proplists:get_value(list_to_atom(Key), Params);
 formatter_callback([_, "default_user", Key], Params) ->
@@ -64,10 +62,6 @@ register_config() ->
     [clique:register_config(Key , fun config_callback/2) || Key <- Keys],
     clique:register_config_whitelist(Keys, ?APP).
 
-config_callback([_, "listener"], Value) ->
-    {ok, {_, Env}} = application:get_env(?APP, listener),
-    application:set_env(?APP, listener, {Value, Env}),
-    " successfully\n";
 config_callback([_, Key], Value) ->
     application:set_env(?APP, list_to_atom(Key), Value),
     " successfully\n";
@@ -106,6 +100,5 @@ keys() ->
      "stomp.frame.max_headers",
      "stomp.frame.max_header_length",
      "stomp.frame.max_body_length",
-     "stomp.listener",
      "stomp.listener.acceptors",
      "stomp.listener.max_clients"].
