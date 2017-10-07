@@ -14,31 +14,37 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 
-%% @doc Stomp supervisor
--module(emq_stomp_sup).
+%% @doc Stomp Frame Header.
 
--behaviour(supervisor).
+-define(STOMP_VER, <<"1.2">>).
 
-%% API
--export([start_link/0]).
-
-%% Supervisor callbacks
--export([init/1]).
-
-%% Helper macro for declaring children of supervisor
--define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
+-define(STOMP_SERVER, <<"emqx-stomp/1.2">>).
 
 %%--------------------------------------------------------------------
-%% API functions
+%% STOMP Frame
 %%--------------------------------------------------------------------
 
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+-record(stomp_frame, {command, headers = [], body = <<>> :: iolist()}).
+
+-type stomp_frame() ::  #stomp_frame{}.
 
 %%--------------------------------------------------------------------
-%% Supervisor callbacks
+%% Frame Size Limits
+%%
+%% To prevent malicious clients from exploiting memory allocation in a server,
+%% servers MAY place maximum limits on:
+%%
+%% the number of frame headers allowed in a single frame
+%% the maximum length of header lines
+%% the maximum size of a frame body
+%%
+%% If these limits are exceeded the server SHOULD send the client an ERROR frame
+%% and then close the connection.
 %%--------------------------------------------------------------------
 
-init([]) ->
-    {ok, { {one_for_all, 5, 10}, []} }.
+-define(MAX_HEADER_NUM,    10).
+
+-define(MAX_HEADER_LENGTH, 1024).
+
+-define(MAX_BODY_LENGTH,   65536).
 

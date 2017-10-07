@@ -26,7 +26,7 @@
 %%
 %% @end
 
--module(emq_stomp_frame).
+-module(emqx_stomp_frame).
 
 %%--------------------------------------------------------------------
 %% Stomp 1.2 BNF grammar:
@@ -70,7 +70,7 @@
 %% header-value        = *<any OCTET except CR or LF or ":">
 %%--------------------------------------------------------------------
 
--include("emq_stomp.hrl").
+-include("emqx_stomp.hrl").
 
 -export([parser/1, serialize/1]).
 

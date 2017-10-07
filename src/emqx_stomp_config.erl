@@ -14,11 +14,11 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 
--module (emq_stomp_config).
+-module(emqx_stomp_config).
 
--export ([register/0, unregister/0]).
+-export([register/0, unregister/0]).
 
--define(APP, emq_stomp).
+-define(APP, emqx_stomp).
 
 %%--------------------------------------------------------------------
 %% API

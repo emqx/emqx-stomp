@@ -1,5 +1,5 @@
 
--module(emqttd_stomp_SUITE).
+-module(emqx_stomp_SUITE).
 
 -compile(export_all).
 

@@ -15,13 +15,13 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp Protocol Processor.
--module(emq_stomp_proto).
+-module(emqx_stomp_proto).
 
--include("emq_stomp.hrl").
+-include("emqx_stomp.hrl").
 
--include_lib("emqttd/include/emqttd.hrl").
+-include_lib("emqx/include/emqx.hrl").
 
--include_lib("emqttd/include/emqttd_internal.hrl").
+-include_lib("emqx/include/emqx_internal.hrl").
 
 -import(proplists, [get_value/2, get_value/3]).
 
@@ -89,8 +89,8 @@ received(#stomp_frame{command = <<"CONNECT">>}, State = #stomp_proto{connected =
 received(#stomp_frame{command = <<"SEND">>, headers = Headers, body = Body}, State) ->
     Topic = header(<<"destination">>, Headers),
     Action = fun(State0) ->
-                 emqttd:publish(
-                     emqttd_message:make(
+                 emqx:publish(
+                     emqx_message:make(
                          stomp, Topic, iolist_to_binary(Body))),
                  State0
              end,
@@ -108,7 +108,7 @@ received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
         {Id, Topic, Ack} ->
             {ok, State};
         false ->
-            emqttd:subscribe(Topic),
+            emqx:subscribe(Topic),
             {ok, State#stomp_proto{subscriptions = [{Id, Topic, Ack}|Subscriptions]}}
     end;
 
@@ -117,7 +117,7 @@ received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
     Id = header(<<"id">>, Headers),
     case lists:keyfind(Id, 1, Subscriptions) of
         {Id, Topic, _Ack} ->
-            emqttd:unsubscribe(Topic),
+            emqx:unsubscribe(Topic),
             {ok, State#stomp_proto{subscriptions = lists:keydelete(Id, 1, Subscriptions)}};
         false ->
             {ok, State}
@@ -157,7 +157,7 @@ received(#stomp_frame{command = <<"BEGIN">>, headers = Headers}, State) ->
     Id        = header(<<"transaction">>, Headers),
     %% self() ! TimeoutMsg
     TimeoutMsg = {transaction, {timeout, Id}},
-    case emq_stomp_transaction:start(Id, TimeoutMsg) of
+    case emqx_stomp_transaction:start(Id, TimeoutMsg) of
         {ok, _Transaction}       ->
             {ok, State};
         {error, already_started} ->
@@ -170,7 +170,7 @@ received(#stomp_frame{command = <<"BEGIN">>, headers = Headers}, State) ->
 %% ^@
 received(#stomp_frame{command = <<"COMMIT">>, headers = Headers}, State) ->
     Id = header(<<"transaction">>, Headers),
-    case emq_stomp_transaction:commit(Id, State) of
+    case emqx_stomp_transaction:commit(Id, State) of
         {ok, NewState} ->
             {ok, NewState};
         {error, not_found} ->
@@ -183,9 +183,9 @@ received(#stomp_frame{command = <<"COMMIT">>, headers = Headers}, State) ->
 %% ^@
 received(#stomp_frame{command = <<"ABORT">>, headers = Headers}, State) ->
     Id = header(<<"transaction">>, Headers),
-    case emq_stomp_transaction:abort(Id) of
+    case emqx_stomp_transaction:abort(Id) of
         ok ->
-            emq_stomp_transaction:abort(Id), {ok, State};
+            emqx_stomp_transaction:abort(Id), {ok, State};
         {error, not_found} ->
             send(error_frame(["Transaction ", Id, " not found"]), State)
     end;
@@ -212,8 +212,8 @@ send(Msg = #mqtt_message{topic = Topic, payload = Payload},
     end;
 
 send(Frame, State = #stomp_proto{sendfun = SendFun}) ->
-    ?LOG(info, "SEND Frame: ~s", [emq_stomp_frame:format(Frame)], State),
-    Data = emq_stomp_frame:serialize(Frame),
+    ?LOG(info, "SEND Frame: ~s", [emqx_stomp_frame:format(Frame)], State),
+    Data = emqx_stomp_frame:serialize(Frame),
     ?LOG(debug, "SEND ~p", [Data], State),
     SendFun(Data),
     {ok, State}.
@@ -234,9 +234,9 @@ negotiate_version(Ver, [_|T]) ->
     negotiate_version(Ver, T).
 
 check_login(undefined, _) ->
-    application:get_env(emq_stomp, allow_anonymous, false);
+    application:get_env(emqx_stomp, allow_anonymous, false);
 check_login(Login, Passcode) ->
-    {ok, DefaultUser} = application:get_env(emq_stomp, default_user),
+    {ok, DefaultUser} = application:get_env(emqx_stomp, default_user),
     case {list_to_binary(get_value(login, DefaultUser)),
           list_to_binary(get_value(passcode, DefaultUser))} of
         {Login, Passcode} -> true;
@@ -244,7 +244,7 @@ check_login(Login, Passcode) ->
     end.
 
 add_action(Id, Action, State) ->
-    case emq_stomp_transaction:add(Id, Action) of
+    case emqx_stomp_transaction:add(Id, Action) of
         {ok, _}           ->
             {ok, State};
         {error, not_found} ->
@@ -261,15 +261,15 @@ header(Name, Headers, Val) ->
     get_value(Name, Headers, Val).
 
 connected_frame(Headers) ->
-    emq_stomp_frame:make(<<"CONNECTED">>, Headers).
+    emqx_stomp_frame:make(<<"CONNECTED">>, Headers).
 
 receipt_frame(Receipt) ->
-    emq_stomp_frame:make(<<"RECEIPT">>, [{<<"receipt-id">>, Receipt}]).
+    emqx_stomp_frame:make(<<"RECEIPT">>, [{<<"receipt-id">>, Receipt}]).
 
 error_frame(Msg) ->
     error_frame([{<<"content-type">>, <<"text/plain">>}], Msg). 
 error_frame(Headers, Msg) ->
-    emq_stomp_frame:make(<<"ERROR">>, Headers, Msg).
+    emqx_stomp_frame:make(<<"ERROR">>, Headers, Msg).
 
 parse_heartbeats(Heartbeats) ->
     CxCy = re:split(Heartbeats, <<",">>, [{return, list}]),

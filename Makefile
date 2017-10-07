@@ -1,12 +1,12 @@
-PROJECT = emq_stomp
-PROJECT_DESCRIPTION = Stomp Protocol Plugin
-PROJECT_VERSION = 2.3
+PROJECT = emqx_stomp
+PROJECT_DESCRIPTION = EMQ X Stomp Protocol Plugin
+PROJECT_VERSION = 2.4
 
 DEPS = clique
 dep_clique  = git https://github.com/emqtt/clique
 
-BUILD_DEPS = emqttd cuttlefish
-dep_emqttd = git https://github.com/emqtt/emqttd develop
+BUILD_DEPS = emqx cuttlefish
+dep_emqx = git https://github.com/emqtt/emqttd X
 dep_cuttlefish = git https://github.com/emqtt/cuttlefish
 
 NO_AUTOPATCH = cuttlefish
@@ -21,4 +21,5 @@ include erlang.mk
 app:: rebar.config
 
 app.config::
-	./deps/cuttlefish/cuttlefish -l info -e etc/ -c etc/emq_stomp.conf -i priv/emq_stomp.schema -d data
+	./deps/cuttlefish/cuttlefish -l info -e etc/ -c etc/emqx_stomp.conf -i priv/emqx_stomp.schema -d data
+

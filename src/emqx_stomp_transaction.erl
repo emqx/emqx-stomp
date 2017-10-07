@@ -15,9 +15,9 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp Transaction
--module(emq_stomp_transaction).
+-module(emqx_stomp_transaction).
 
--include("emq_stomp.hrl").
+-include("emqx_stomp.hrl").
 
 -export([start/2, add/2, commit/2, abort/1, timeout/1]).
 
