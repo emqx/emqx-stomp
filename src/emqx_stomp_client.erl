@@ -15,13 +15,13 @@
 %%--------------------------------------------------------------------
 
 %% @doc Stomp Client Connection
--module(emq_stomp_client).
+-module(emqx_stomp_client).
 
 -behaviour(gen_server).
 
--include("emq_stomp.hrl").
+-include("emqx_stomp.hrl").
 
--include_lib("emqttd/include/emqttd_internal.hrl").
+-include_lib("emqx/include/emqx_internal.hrl").
 
 %% API Function Exports
 -export([start_link/2, info/1]).
@@ -70,8 +70,8 @@ init([Connection0, ProtoEnv]) ->
             error:Error -> Self ! {shutdown, Error}
         end
     end,
-    ParserFun = emq_stomp_frame:parser(ProtoEnv),
-    ProtoState = emq_stomp_proto:init(PeerName, SendFun, ProtoEnv),
+    ParserFun = emqx_stomp_frame:parser(ProtoEnv),
+    ProtoState = emqx_stomp_proto:init(PeerName, SendFun, ProtoEnv),
     RateLimit = proplists:get_value(rate_limit, Connection:opts()),
     State = run_socket(#stomp_client{connection   = Connection,
                                      connname     = ConnName,
@@ -90,7 +90,7 @@ handle_call(info, _From, State = #stomp_client{connection  = Connection,
                                                proto_state = ProtoState}) ->
 
     ClientInfo = ?record_to_proplist(stomp_client, State, ?INFO_KEYS),
-    ProtoInfo  = emq_stomp_proto:info(ProtoState),
+    ProtoInfo  = emqx_stomp_proto:info(ProtoState),
     {ok, SockStats} = Connection:getstat(?SOCK_STATS),
     {noreply, lists:append([ClientInfo, [{proto_info, ProtoInfo},
                                          {sock_stats, SockStats}]]), State};
@@ -111,14 +111,14 @@ handle_info({shutdown, Error}, State) ->
     shutdown(Error, State);
 
 handle_info({transaction, {timeout, Id}}, State) ->
-    emq_stomp_transaction:timeout(Id),
+    emqx_stomp_transaction:timeout(Id),
     noreply(State);
 
 handle_info({heartbeat, start, {Cx, Cy}}, State = #stomp_client{connection = Connection}) ->
     Self = self(),
     Incomming = {Cx, statfun(recv_oct, State), fun() -> Self ! {heartbeat, timeout} end},
     Outgoing  = {Cy, statfun(send_oct, State), fun() -> Connection:send(<<$\n>>) end},
-    {ok, HbProc} = emq_stomp_heartbeat:start_link(Incomming, Outgoing),
+    {ok, HbProc} = emqx_stomp_heartbeat:start_link(Incomming, Outgoing),
     noreply(State#stomp_client{heartbeat = HbProc});
 
 handle_info({heartbeat, timeout}, State) ->
@@ -144,7 +144,7 @@ handle_info({inet_reply, _Sock, {error, Reason}}, State) ->
     shutdown(Reason, State);
 
 handle_info({dispatch, _Topic, Msg}, State = #stomp_client{proto_state = ProtoState}) ->
-    {ok, ProtoState1} = emq_stomp_proto:send(Msg, ProtoState),
+    {ok, ProtoState1} = emqx_stomp_proto:send(Msg, ProtoState),
     noreply(State#stomp_client{proto_state = ProtoState1});
 
 handle_info(Info, State) ->
@@ -159,9 +159,9 @@ terminate(Reason, State = #stomp_client{connection  = Connection,
         {undefined, _} ->
             ok;
         {_, {shutdown, Error}} -> 
-            emq_stomp_proto:shutdown(Error, ProtoState);
+            emqx_stomp_proto:shutdown(Error, ProtoState);
         {_,  Reason} ->
-            emq_stomp_proto:shutdown(Reason, ProtoState)
+            emqx_stomp_proto:shutdown(Reason, ProtoState)
     end.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -180,8 +180,8 @@ received(Bytes, State = #stomp_client{parser_fun  = ParserFun,
         {more, NewParser} ->
             noreply(run_socket(State#stomp_client{parser_fun = NewParser}));
         {ok, Frame, Rest} ->
-            ?LOG(info, "RECV Frame: ~s", [emq_stomp_frame:format(Frame)], State),
-            case emq_stomp_proto:received(Frame, ProtoState) of
+            ?LOG(info, "RECV Frame: ~s", [emqx_stomp_frame:format(Frame)], State),
+            case emqx_stomp_proto:received(Frame, ProtoState) of
                 {ok, ProtoState1}           ->
                     received(Rest, reset_parser(State#stomp_client{proto_state = ProtoState1}));
                 {error, Error, ProtoState1} ->
@@ -200,7 +200,7 @@ received(Bytes, State = #stomp_client{parser_fun  = ParserFun,
     end.
 
 reset_parser(State = #stomp_client{proto_env = ProtoEnv}) ->
-    State#stomp_client{parser_fun = emq_stomp_frame:parser(ProtoEnv)}.
+    State#stomp_client{parser_fun = emqx_stomp_frame:parser(ProtoEnv)}.
 
 rate_limit(_Size, State = #stomp_client{rate_limit = undefined}) ->
     run_socket(State);

@@ -14,8 +14,7 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 
-%% @doc Stomp Protocol
--module(emq_stomp).
+-module(emqx_stomp).
 
 -export([start_listener/0, stop_listener/0]).
 
@@ -31,12 +30,12 @@
 start_listener() ->
     {ok, {Port, Opts}} = application:get_env(?APP, listener),
     {ok, Env} = application:get_env(?APP, frame),
-    MFArgs = {emq_stomp_client, start_link, [Env]},
+    MFArgs = {emqx_stomp_client, start_link, [Env]},
     esockd:open(stomp, Port, merge_sockopts(Opts), MFArgs).
 
 merge_sockopts(Opts) ->
-    SockOpts = emqttd_misc:merge_opts(?SOCKOPTS, proplists:get_value(sockopts, Opts, [])),
-    emqttd_misc:merge_opts(Opts, [{sockopts, SockOpts}]).
+    SockOpts = emqx_misc:merge_opts(?SOCKOPTS, proplists:get_value(sockopts, Opts, [])),
+    emqx_misc:merge_opts(Opts, [{sockopts, SockOpts}]).
 
 stop_listener() ->
     {ok, {Port, _Opts}} = application:get_env(?APP, listener),
