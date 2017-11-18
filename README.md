@@ -1,5 +1,5 @@
 
-emq_stomp
+emq-stomp
 =========
 
 The plugin adds STOMP 1.0/1.1/1.2 protocol support to the emqttd broker.
