@@ -17,7 +17,7 @@
 %% @doc Stomp Frame Header.
 
 -define(STOMP_VER, <<"1.2">>).
--define(STOMP_SERVER, <<"emqttd-stomp/1.2">>).
+-define(STOMP_SERVER, <<"emq-stomp/1.2">>).
 
 %%--------------------------------------------------------------------
 %% STOMP Frame
@@ -25,7 +25,7 @@
 
 -record(stomp_frame, {command, headers = [], body = <<>> :: iolist()}).
 
--type stomp_frame() ::  #stomp_frame{}.
+-type(stomp_frame() :: #stomp_frame{}).
 
 %%--------------------------------------------------------------------
 %% Frame Size Limits
@@ -40,7 +40,8 @@
 %% If these limits are exceeded the server SHOULD send the client an ERROR frame
 %% and then close the connection.
 %%--------------------------------------------------------------------
--define(MAX_HEADER_NUM,        10).
--define(MAX_HEADER_LENGTH,     1024).
--define(MAX_BODY_LENGTH,       65536).
+
+-define(MAX_HEADER_NUM,    10).
+-define(MAX_HEADER_LENGTH, 1024).
+-define(MAX_BODY_LENGTH,   65536).
 

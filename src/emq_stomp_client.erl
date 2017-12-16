@@ -47,33 +47,25 @@ start_link(Connection, ProtoEnv) ->
 info(CPid) ->
     gen_server:call(CPid, info, infinity).
 
-init([Connection0, ProtoEnv]) ->
+init([Conn0, ProtoEnv]) ->
     process_flag(trap_exit, true),
-    {ok, Connection} = Connection0:wait(),
+    {ok, Conn} = Conn0:wait(),
     {PeerHost, PeerPort, PeerName} =
-    case Connection:peername() of
+    case Conn:peername() of
         {ok, Peer = {Host, Port}} ->
             {Host, Port, Peer};
         {error, enotconn} ->
-            Connection:fast_close(),
+            Conn:fast_close(),
             exit(normal);
         {error, Reason} ->
-            Connection:fast_close(),
+            Conn:fast_close(),
             exit({shutdown, Reason})
     end,
     ConnName = esockd_net:format(PeerName),
-    Self = self(),
-    SendFun = fun(Data) ->
-        try Connection:async_send(Data) of
-            true -> ok
-        catch
-            error:Error -> Self ! {shutdown, Error}
-        end
-    end,
     ParserFun = emq_stomp_frame:parser(ProtoEnv),
-    ProtoState = emq_stomp_proto:init(PeerName, SendFun, ProtoEnv),
-    RateLimit = proplists:get_value(rate_limit, Connection:opts()),
-    State = run_socket(#stomp_client{connection   = Connection,
+    ProtoState = emq_stomp_proto:init(PeerName, send_fun(Conn), ProtoEnv),
+    RateLimit = proplists:get_value(rate_limit, Conn:opts()),
+    State = run_socket(#stomp_client{connection   = Conn,
                                      connname     = ConnName,
                                      peername     = PeerName,
                                      peerhost     = PeerHost,
@@ -85,6 +77,18 @@ init([Connection0, ProtoEnv]) ->
                                      proto_env    = ProtoEnv,
                                      proto_state  = ProtoState}),
     gen_server:enter_loop(?MODULE, [], State, 10000).
+
+send_fun(Conn) ->
+    Self = self(),
+    fun(Data) ->
+        try Conn:async_send(Data) of
+            ok -> ok;
+            true -> ok; %% Compatible with esockd 4.x
+            {error, Reason} -> Self ! {shutdown, Reason}
+        catch
+            error:Error -> Self ! {shutdown, Error}
+        end
+    end.
 
 handle_call(info, _From, State = #stomp_client{connection  = Connection,
                                                proto_state = ProtoState}) ->
