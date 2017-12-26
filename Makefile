@@ -1,12 +1,12 @@
 PROJECT = emqx_stomp
 PROJECT_DESCRIPTION = EMQ X Stomp Protocol Plugin
-PROJECT_VERSION = 2.3.0
+PROJECT_VERSION = 2.3.2
 
 DEPS = clique
 dep_clique  = git https://github.com/emqtt/clique
 
 BUILD_DEPS = emqx cuttlefish
-dep_emqx = git git@github.com:emqx/emqx-enterprise
+dep_emqx = git git@github.com:emqx/emqx-enterprise master
 dep_cuttlefish = git https://github.com/emqtt/cuttlefish
 
 NO_AUTOPATCH = cuttlefish

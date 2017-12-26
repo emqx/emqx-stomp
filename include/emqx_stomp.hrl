@@ -26,7 +26,7 @@
 
 -record(stomp_frame, {command, headers = [], body = <<>> :: iolist()}).
 
--type stomp_frame() ::  #stomp_frame{}.
+-type(stomp_frame() :: #stomp_frame{}).
 
 %%--------------------------------------------------------------------
 %% Frame Size Limits
@@ -43,8 +43,6 @@
 %%--------------------------------------------------------------------
 
 -define(MAX_HEADER_NUM,    10).
-
 -define(MAX_HEADER_LENGTH, 1024).
-
 -define(MAX_BODY_LENGTH,   65536).
 

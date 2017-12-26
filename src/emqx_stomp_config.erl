@@ -23,6 +23,7 @@
 %%--------------------------------------------------------------------
 %% API
 %%--------------------------------------------------------------------
+
 register() ->
     clique_config:load_schema([code:priv_dir(?APP)], ?APP),
     register_formatter(),
@@ -36,9 +37,10 @@ unregister() ->
 %%--------------------------------------------------------------------
 %% Get ENV Register formatter
 %%--------------------------------------------------------------------
+
 register_formatter() ->
     Ignore = ["stomp.allow_anonymous"],
-    [clique:register_formatter(cuttlefish_variable:tokenize(Key), 
+    [clique:register_formatter(cuttlefish_variable:tokenize(Key),
      fun formatter_callback/2) || Key <- keys() -- Ignore].
 
 formatter_callback([_, "listener", Key], {_Port, Params}) ->
@@ -51,12 +53,14 @@ formatter_callback([_, "frame", Key], Params) ->
 %%--------------------------------------------------------------------
 %% UnRegister formatter
 %%--------------------------------------------------------------------
+
 unregister_formatter() ->
     [clique:unregister_formatter(cuttlefish_variable:tokenize(Key)) || Key <- keys()].
 
 %%--------------------------------------------------------------------
 %% Set ENV Register Config
 %%--------------------------------------------------------------------
+
 register_config() ->
     Keys = keys(),
     [clique:register_config(Key , fun config_callback/2) || Key <- Keys],
@@ -81,10 +85,10 @@ config_callback([_, "frame", Key0], Value) ->
     application:set_env(?APP, frame, lists:keyreplace(Key, 1, Env, {Key, Value})),
     " successfully\n".
 
-
 %%--------------------------------------------------------------------
 %% UnRegister config
 %%--------------------------------------------------------------------
+
 unregister_config() ->
     Keys = keys(),
     [clique:unregister_config(Key) || Key <- Keys],
@@ -93,6 +97,7 @@ unregister_config() ->
 %%--------------------------------------------------------------------
 %% Internal Functions
 %%--------------------------------------------------------------------
+
 keys() ->
     ["stomp.default_user.login",
      "stomp.default_user.passcode",
@@ -102,3 +107,4 @@ keys() ->
      "stomp.frame.max_body_length",
      "stomp.listener.acceptors",
      "stomp.listener.max_clients"].
+
