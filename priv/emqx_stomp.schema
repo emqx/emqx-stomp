@@ -1,6 +1,28 @@
 %%-*- mode: erlang -*-
 %% emqx_stomp config mapping
 
+{mapping, "stomp.listener", "emqx_stomp.listener", [
+  {default, 61613},
+  {datatype, [integer, ip]}
+]}.
+
+{mapping, "stomp.listener.acceptors", "emqx_stomp.listener", [
+  {default, 4},
+  {datatype, integer}
+]}.
+
+{mapping, "stomp.listener.max_clients", "emqx_stomp.listener", [
+  {default, 512},
+  {datatype, integer}
+]}.
+
+{translation, "emqx_stomp.listener", fun(Conf) ->
+  Port = cuttlefish:conf_get("stomp.listener", Conf),
+  Acceptors = cuttlefish:conf_get("stomp.listener.acceptors", Conf),
+  MaxClients = cuttlefish:conf_get("stomp.listener.max_clients", Conf),
+  {Port, [{acceptors, Acceptors}, {max_clients, MaxClients}]}
+end}.
+
 {mapping, "stomp.default_user.login", "emqx_stomp.default_user", [
   {default, "guest"},
   {datatype, string}
@@ -42,28 +64,5 @@ end}.
   MaxHeaderLength = cuttlefish:conf_get("stomp.frame.max_header_length", Conf),
   MaxBodyLength = cuttlefish:conf_get("stomp.frame.max_body_length", Conf),
   [{max_headers, MaxHeaders}, {max_header_length, MaxHeaderLength}, {max_body_length, MaxBodyLength}]
-end}.
-
-
-{mapping, "stomp.listener", "emqx_stomp.listener", [
-  {default, 61613},
-  {datatype, [integer, ip]}
-]}.
-
-{mapping, "stomp.listener.acceptors", "emqx_stomp.listener", [
-  {default, 4},
-  {datatype, integer}
-]}.
-
-{mapping, "stomp.listener.max_clients", "emqx_stomp.listener", [
-  {default, 512},
-  {datatype, integer}
-]}.
-
-{translation, "emqx_stomp.listener", fun(Conf) ->
-  Port = cuttlefish:conf_get("stomp.listener", Conf),
-  Acceptors = cuttlefish:conf_get("stomp.listener.acceptors", Conf),
-  MaxClients = cuttlefish:conf_get("stomp.listener.max_clients", Conf),
-  {Port, [{acceptors, Acceptors}, {max_clients, MaxClients}]}
 end}.
 
