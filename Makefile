@@ -1,6 +1,6 @@
 PROJECT = emq_stomp
 PROJECT_DESCRIPTION = Stomp Protocol Plugin
-PROJECT_VERSION = 2.3.4
+PROJECT_VERSION = 2.3.5
 
 DEPS = clique
 dep_clique = git https://github.com/emqtt/clique
