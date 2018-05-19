@@ -1,82 +1,84 @@
-%%--------------------------------------------------------------------
-%% Copyright (c) 2013-2018 EMQ Enterprise, Inc. (http://emqtt.io)
-%%
-%% Licensed under the Apache License, Version 2.0 (the "License");
-%% you may not use this file except in compliance with the License.
-%% You may obtain a copy of the License at
-%%
-%%     http://www.apache.org/licenses/LICENSE-2.0
-%%
-%% Unless required by applicable law or agreed to in writing, software
-%% distributed under the License is distributed on an "AS IS" BASIS,
-%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-%% See the License for the specific language governing permissions and
-%% limitations under the License.
-%%--------------------------------------------------------------------
+%%%===================================================================
+%%% Copyright (c) 2013-2018 EMQ Inc. All rights reserved.
+%%%
+%%% Licensed under the Apache License, Version 2.0 (the "License");
+%%% you may not use this file except in compliance with the License.
+%%% You may obtain a copy of the License at
+%%%
+%%%     http://www.apache.org/licenses/LICENSE-2.0
+%%%
+%%% Unless required by applicable law or agreed to in writing, software
+%%% distributed under the License is distributed on an "AS IS" BASIS,
+%%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%%% See the License for the specific language governing permissions and
+%%% limitations under the License.
+%%%===================================================================
 
-%% @doc Stomp Client Connection
--module(emqx_stomp_client).
+-module(emqx_stomp_connection).
 
 -behaviour(gen_server).
 
 -include("emqx_stomp.hrl").
+-include_lib("emqx/include/emqx_misc.hrl").
 
--include_lib("emqx/include/emqx_internal.hrl").
-
-%% API Function Exports
--export([start_link/2, info/1]).
+-export([start_link/3, info/1]).
 
 %% gen_server Function Exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          code_change/3, terminate/2]).
 
--record(stomp_client, {connection, connname, peername, peerhost, peerport,
-                       await_recv, conn_state, rate_limit, parser_fun,
-                       proto_state, proto_env, heartbeat}).
+-record(stomp_client, {transport, sock, peername, conn_name, conn_state,
+                       await_recv, rate_limit, parser_fun, proto_state,
+                       proto_env, heartbeat}).
 
--define(INFO_KEYS, [peername, peerhost, peerport, await_recv, conn_state]).
+-define(INFO_KEYS, [peername, await_recv, conn_state]).
 
 -define(SOCK_STATS, [recv_oct, recv_cnt, send_oct, send_cnt]).
 
 -define(LOG(Level, Format, Args, State),
-            lager:Level("Stomp(~s): " ++ Format, [State#stomp_client.connname | Args])).
+            lager:Level("Stomp(~s): " ++ Format, [State#stomp_client.conn_name | Args])).
 
-start_link(Connection, ProtoEnv) ->
-    {ok, proc_lib:spawn_link(?MODULE, init, [[Connection, ProtoEnv]])}.
+start_link(Transport, Sock, ProtoEnv) ->
+    {ok, proc_lib:spawn_link(?MODULE, init, [[Transport, Sock, ProtoEnv]])}.
 
 info(CPid) ->
     gen_server:call(CPid, info, infinity).
 
-init([Conn0, ProtoEnv]) ->
+init([Transport, Sock, ProtoEnv]) ->
     process_flag(trap_exit, true),
-    {ok, Conn} = Conn0:wait(),
-    {PeerHost, PeerPort, PeerName} =
-    case Conn:peername() of
-        {ok, Peer = {Host, Port}} ->
-            {Host, Port, Peer};
-        {error, enotconn} ->
-            Conn:fast_close(),
-            exit(normal);
+    case Transport:wait(Sock) of
+        {ok, NewSock} ->
+            case Transport:peername(Sock) of
+                {ok, Peername} ->
+                    ConnName = esockd_net:format(PeerName),
+                    ParserFun = emqx_stomp_frame:parser(ProtoEnv),
+                    ProtoState = emqx_stomp_proto:init(PeerName, send_fun(Conn), ProtoEnv),
+                    RateLimit = proplists:get_value(rate_limit, ProtoEnv),
+                    State = run_socket(#stomp_client{connection   = Conn,
+                                                     connname     = ConnName,
+                                                     peername     = PeerName,
+                                                     peerhost     = PeerHost,
+                                                     peerport     = PeerPort,
+                                                     await_recv   = false,
+                                                     conn_state   = running,
+                                                     rate_limit   = RateLimit,
+                                                     parser_fun   = ParserFun,
+                                                     proto_env    = ProtoEnv,
+                                                     proto_state  = ProtoState}),
+                    gen_server:enter_loop(?MODULE, [], State, 10000);
+                {error, enotconn} ->
+                    Transport:fast_close(Sock),
+                    exit(normal);
+                {error, closed} ->
+                    Transport:fast_close(Sock),
+                    exit(normal);
+                {error, Reason} ->
+                    Transport:fast_close(Sock),
+                    exit({shutdown, Reason})
+            end;
         {error, Reason} ->
-            Conn:fast_close(),
-            exit({shutdown, Reason})
-    end,
-    ConnName = esockd_net:format(PeerName),
-    ParserFun = emqx_stomp_frame:parser(ProtoEnv),
-    ProtoState = emqx_stomp_proto:init(PeerName, send_fun(Conn), ProtoEnv),
-    RateLimit = proplists:get_value(rate_limit, Conn:opts()),
-    State = run_socket(#stomp_client{connection   = Conn,
-                                     connname     = ConnName,
-                                     peername     = PeerName,
-                                     peerhost     = PeerHost,
-                                     peerport     = PeerPort,
-                                     await_recv   = false,
-                                     conn_state   = running,
-                                     rate_limit   = RateLimit,
-                                     parser_fun   = ParserFun,
-                                     proto_env    = ProtoEnv,
-                                     proto_state  = ProtoState}),
-    gen_server:enter_loop(?MODULE, [], State, 10000).
+            {stop, Reason}
+    end.
 
 send_fun(Conn) ->
     Self = self(),
