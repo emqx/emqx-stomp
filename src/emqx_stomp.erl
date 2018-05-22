@@ -20,7 +20,8 @@
 
 -define(APP, ?MODULE).
 
--define(SOCKOPTS, [binary, {packet, raw}, {reuseaddr, true}, {nodelay, true}]).
+-define(SOCK_OPTS, [binary, {packet, raw},
+                    {reuseaddr, true}, {nodelay, true}]).
 
 start_listener() ->
     {ok, {Port, Opts}} = application:get_env(?APP, listener),

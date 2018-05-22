@@ -19,7 +19,6 @@
 -behaviour(gen_server).
 
 -include("emqx_stomp.hrl").
--include_lib("emqx/include/emqx_misc.hrl").
 
 -export([start_link/3, info/1]).
 
@@ -27,8 +26,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          code_change/3, terminate/2]).
 
--record(stomp_client, {transport, sock, peername, conn_name, conn_state,
-                       await_recv, rate_limit, parser_fun, proto_state,
+-record(stomp_client, {transport, socket, peername, conn_name, conn_state,
+                       await_recv, rate_limit, parse_fun, proto_state,
                        proto_env, heartbeat}).
 
 -define(INFO_KEYS, [peername, await_recv, conn_state]).
@@ -48,82 +47,77 @@ init([Transport, Sock, ProtoEnv]) ->
     process_flag(trap_exit, true),
     case Transport:wait(Sock) of
         {ok, NewSock} ->
-            case Transport:peername(Sock) of
-                {ok, Peername} ->
-                    ConnName = esockd_net:format(PeerName),
-                    ParserFun = emqx_stomp_frame:parser(ProtoEnv),
-                    ProtoState = emqx_stomp_proto:init(PeerName, send_fun(Conn), ProtoEnv),
-                    RateLimit = proplists:get_value(rate_limit, ProtoEnv),
-                    State = run_socket(#stomp_client{connection   = Conn,
-                                                     connname     = ConnName,
-                                                     peername     = PeerName,
-                                                     peerhost     = PeerHost,
-                                                     peerport     = PeerPort,
-                                                     await_recv   = false,
-                                                     conn_state   = running,
-                                                     rate_limit   = RateLimit,
-                                                     parser_fun   = ParserFun,
-                                                     proto_env    = ProtoEnv,
-                                                     proto_state  = ProtoState}),
-                    gen_server:enter_loop(?MODULE, [], State, 10000);
-                {error, enotconn} ->
-                    Transport:fast_close(Sock),
-                    exit(normal);
-                {error, closed} ->
-                    Transport:fast_close(Sock),
-                    exit(normal);
-                {error, Reason} ->
-                    Transport:fast_close(Sock),
-                    exit({shutdown, Reason})
-            end;
+            {ok, Peername} = Transport:ensure_ok_or_exit(peername, [NewSock]),
+            ConnName = esockd_net:format(Peername),
+            SendFun = send_fun(Transport, Sock),
+            ParseFun = emqx_stomp_frame:parser(ProtoEnv),
+            ProtoState = emqx_stomp_protocol:init(Peername, SendFun, ProtoEnv),
+            RateLimit = proplists:get_value(rate_limit, ProtoEnv),
+            State = run_socket(#stomp_client{transport   = Transport,
+                                             socket      = NewSock,
+                                             peername    = Peername,
+                                             conn_name   = ConnName,
+                                             conn_state  = running,
+                                             await_recv  = false,
+                                             rate_limit  = RateLimit,
+                                             parse_fun   = ParseFun,
+                                             proto_env   = ProtoEnv,
+                                             proto_state = ProtoState}),
+            gen_server:enter_loop(?MODULE, [{hibernate_after, 5000}], State, 20000);
         {error, Reason} ->
             {stop, Reason}
     end.
 
-send_fun(Conn) ->
+send_fun(Transport, Sock) ->
     Self = self(),
     fun(Data) ->
-        try Conn:async_send(Data) of
+        try Transport:async_send(Sock, Data) of
             ok -> ok;
-            true -> ok; %% Compatible with esockd 4.x
             {error, Reason} -> Self ! {shutdown, Reason}
         catch
             error:Error -> Self ! {shutdown, Error}
         end
     end.
 
-handle_call(info, _From, State = #stomp_client{connection  = Connection,
+handle_call(info, _From, State = #stomp_client{transport   = Transport,
+                                               socket      = Sock,
+                                               peername    = Peername,
+                                               await_recv  = AwaitRecv,
+                                               conn_state  = ConnState,
                                                proto_state = ProtoState}) ->
-
-    ClientInfo = ?record_to_proplist(stomp_client, State, ?INFO_KEYS),
-    ProtoInfo  = emqx_stomp_proto:info(ProtoState),
-    {ok, SockStats} = Connection:getstat(?SOCK_STATS),
-    {noreply, lists:append([ClientInfo, [{proto_info, ProtoInfo},
-                                         {sock_stats, SockStats}]]), State};
+    ClientInfo = [{peername,  Peername}, {await_recv, AwaitRecv},
+                  {conn_state, ConnState}],
+    ProtoInfo  = emqx_stomp_protocol:info(ProtoState),
+    case Transport:getstat(Sock, ?SOCK_STATS) of
+        {ok, SockStats} ->
+            {reply, lists:append([ClientInfo, ProtoInfo, SockStats]), State};
+        {error, Reason} ->
+            {stop, Reason, lists:append([ClientInfo, ProtoInfo]), State}
+    end;
 
 handle_call(Req, _From, State) ->
-    ?LOG(critical, "Unexpected request: ~p", [Req], State),
-    
-    {reply, {error, unsupported_request}, State}.
+    ?LOG(error, "Unexpected request: ~p", [Req], State),
+    {reply, ignore, State}.
 
 handle_cast(Msg, State) ->
-    ?LOG(critical, "Unexpected msg: ~p", [Msg], State),
+    ?LOG(error, "Unexpected msg: ~p", [Msg], State),
     noreply(State).
 
 handle_info(timeout, State) ->
     shutdown(idle_timeout, State);
 
-handle_info({shutdown, Error}, State) ->
-    shutdown(Error, State);
+handle_info({shutdown, Reason}, State) ->
+    shutdown(Reason, State);
 
 handle_info({transaction, {timeout, Id}}, State) ->
     emqx_stomp_transaction:timeout(Id),
     noreply(State);
 
-handle_info({heartbeat, start, {Cx, Cy}}, State = #stomp_client{connection = Connection}) ->
+handle_info({heartbeat, start, {Cx, Cy}},
+            State = #stomp_client{transport = Transport, socket = Sock}) ->
     Self = self(),
     Incomming = {Cx, statfun(recv_oct, State), fun() -> Self ! {heartbeat, timeout} end},
-    Outgoing  = {Cy, statfun(send_oct, State), fun() -> Connection:send(<<$\n>>) end},
+    Outgoing  = {Cy, statfun(send_oct, State), fun() -> Transport:send(Sock, <<$\n>>) end},
     {ok, HbProc} = emqx_stomp_heartbeat:start_link(Incomming, Outgoing),
     noreply(State#stomp_client{heartbeat = HbProc});
 
@@ -150,44 +144,44 @@ handle_info({inet_reply, _Sock, {error, Reason}}, State) ->
     shutdown(Reason, State);
 
 handle_info({dispatch, _Topic, Msg}, State = #stomp_client{proto_state = ProtoState}) ->
-    {ok, ProtoState1} = emqx_stomp_proto:send(Msg, ProtoState),
+    {ok, ProtoState1} = emqx_stomp_protocol:send(Msg, ProtoState),
     noreply(State#stomp_client{proto_state = ProtoState1});
 
 handle_info(Info, State) ->
-    ?LOG(critical, "Unexpected info: ~p", [Info], State),
+    ?LOG(error, "Unexpected info: ~p", [Info], State),
     noreply(State).
 
-terminate(Reason, State = #stomp_client{connection  = Connection,
+terminate(Reason, State = #stomp_client{transport   = Transport,
+                                        socket      = Sock,
                                         proto_state = ProtoState}) ->
     ?LOG(info, "terminated for ~p", [Reason], State),
-    Connection:fast_close(),
+    Transport:fast_close(Sock),
     case {ProtoState, Reason} of
-        {undefined, _} ->
-            ok;
-        {_, {shutdown, Error}} -> 
-            emqx_stomp_proto:shutdown(Error, ProtoState);
+        {undefined, _} -> ok;
+        {_, {shutdown, Error}} ->
+            emqx_stomp_protocol:shutdown(Error, ProtoState);
         {_,  Reason} ->
-            emqx_stomp_proto:shutdown(Reason, ProtoState)
+            emqx_stomp_protocol:shutdown(Reason, ProtoState)
     end.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%%------------------------------------------------------------------------------
-%% receive and parse tcp data 
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% Receive and Parse data
+%%--------------------------------------------------------------------
 
 received(<<>>, State) ->
     noreply(State);
 
-received(Bytes, State = #stomp_client{parser_fun  = ParserFun,
+received(Bytes, State = #stomp_client{parse_fun   = ParseFun,
                                       proto_state = ProtoState}) ->
-    case catch ParserFun(Bytes) of
-        {more, NewParser} ->
-            noreply(run_socket(State#stomp_client{parser_fun = NewParser}));
+    case catch ParseFun(Bytes) of
+        {more, NewParseFun} ->
+            noreply(State#stomp_client{parse_fun = NewParseFun});
         {ok, Frame, Rest} ->
             ?LOG(info, "RECV Frame: ~s", [emqx_stomp_frame:format(Frame)], State),
-            case emqx_stomp_proto:received(Frame, ProtoState) of
+            case emqx_stomp_protocol:received(Frame, ProtoState) of
                 {ok, ProtoState1}           ->
                     received(Rest, reset_parser(State#stomp_client{proto_state = ProtoState1}));
                 {error, Error, ProtoState1} ->
@@ -202,11 +196,11 @@ received(Bytes, State = #stomp_client{parser_fun  = ParserFun,
         {'EXIT', Reason} ->
             ?LOG(error, "Parser failed for ~p", [Reason], State),
             ?LOG(error, "Error data: ~p", [Bytes], State),
-            shutdown(parser_error, State)
+            shutdown(parse_error, State)
     end.
 
 reset_parser(State = #stomp_client{proto_env = ProtoEnv}) ->
-    State#stomp_client{parser_fun = emqx_stomp_frame:parser(ProtoEnv)}.
+    State#stomp_client{parse_fun = emqx_stomp_frame:parser(ProtoEnv)}.
 
 rate_limit(_Size, State = #stomp_client{rate_limit = undefined}) ->
     run_socket(State);
@@ -218,27 +212,27 @@ rate_limit(Size, State = #stomp_client{rate_limit = Rl}) ->
         {Pause, Rl1} ->
             ?LOG(error, "Rate limiter pause for ~p", [Pause], State),
             erlang:send_after(Pause, self(), activate_sock),
-            State#stomp_client{conn_state = blocked, rate_limit = Rl1}    
+            State#stomp_client{conn_state = blocked, rate_limit = Rl1}
     end.
 
 run_socket(State = #stomp_client{conn_state = blocked}) ->
     State;
 run_socket(State = #stomp_client{await_recv = true}) ->
     State;
-run_socket(State = #stomp_client{connection = Connection}) ->
-    Connection:async_recv(0, infinity),
+run_socket(State = #stomp_client{transport = Transport, socket = Sock}) ->
+    Transport:async_recv(Sock, 0, infinity),
     State#stomp_client{await_recv = true}.
 
-statfun(Stat, #stomp_client{connection = Connection}) ->
+statfun(Stat, #stomp_client{transport = Transport, socket = Sock}) ->
     fun() ->
-        case Connection:getstat([Stat]) of
+        case Transport:getstat(Sock, [Stat]) of
             {ok, [{Stat, Val}]} -> {ok, Val};
             {error, Error}      -> {error, Error}
         end
     end.
 
 noreply(State) ->
-    {noreply, State, hibernate}.
+    {noreply, State}.
 
 stop(Reason, State) ->
     {stop, Reason, State}.

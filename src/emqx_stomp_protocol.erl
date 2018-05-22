@@ -1,36 +1,33 @@
-%%--------------------------------------------------------------------
-%% Copyright (c) 2013-2018 EMQ Enterprise, Inc. (http://emqtt.io)
-%%
-%% Licensed under the Apache License, Version 2.0 (the "License");
-%% you may not use this file except in compliance with the License.
-%% You may obtain a copy of the License at
-%%
-%%     http://www.apache.org/licenses/LICENSE-2.0
-%%
-%% Unless required by applicable law or agreed to in writing, software
-%% distributed under the License is distributed on an "AS IS" BASIS,
-%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-%% See the License for the specific language governing permissions and
-%% limitations under the License.
-%%--------------------------------------------------------------------
+%%%===================================================================
+%%% Copyright (c) 2013-2018 EMQ Inc. All rights reserved.
+%%%
+%%% Licensed under the Apache License, Version 2.0 (the "License");
+%%% you may not use this file except in compliance with the License.
+%%% You may obtain a copy of the License at
+%%%
+%%%     http://www.apache.org/licenses/LICENSE-2.0
+%%%
+%%% Unless required by applicable law or agreed to in writing, software
+%%% distributed under the License is distributed on an "AS IS" BASIS,
+%%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%%% See the License for the specific language governing permissions and
+%%% limitations under the License.
+%%%===================================================================
 
 %% @doc Stomp Protocol Processor.
--module(emqx_stomp_proto).
+
+-module(emqx_stomp_protocol).
 
 -include("emqx_stomp.hrl").
-
 -include_lib("emqx/include/emqx.hrl").
-
--include_lib("emqx/include/emqx_internal.hrl").
+-include_lib("emqx/include/emqx_mqtt.hrl").
+-include_lib("emqx/include/emqx_misc.hrl").
 
 -import(proplists, [get_value/2, get_value/3]).
 
 %% API
 -export([init/3, info/1]).
-
--export([received/2, send/2]).
-
--export([shutdown/2]).
+-export([received/2, send/2, shutdown/2]).
 
 -record(stomp_proto, {peername,
                       sendfun,
@@ -41,7 +38,7 @@
                       login,
                       subscriptions = []}).
 
--type stomp_proto() :: #stomp_proto{}.
+-type(stomp_proto() :: #stomp_proto{}).
 
 -define(INFO_KEYS, [connected, proto_ver, proto_name, heart_beats, login,
                     subscriptions]).
@@ -51,15 +48,14 @@
 
 %% @doc Init protocol
 init(Peername, SendFun, _Env) ->
-	#stomp_proto{peername = Peername,
-                 sendfun  = SendFun}.
+	#stomp_proto{peername = Peername, sendfun = SendFun}.
 
 info(ProtoState) ->
     ?record_to_proplist(stomp_proto, ProtoState, ?INFO_KEYS).
 
--spec received(stomp_frame(), stomp_proto()) -> {ok, stomp_proto()}
+-spec(received(stomp_frame(), stomp_proto()) -> {ok, stomp_proto()}
                                               | {error, any(), stomp_proto()}
-                                              | {stop, any(), stomp_proto()}.
+                                              | {stop, any(), stomp_proto()}).
 received(Frame = #stomp_frame{command = <<"STOMP">>}, State) ->
     received(Frame#stomp_frame{command = <<"CONNECT">>}, State);
 
@@ -89,9 +85,9 @@ received(#stomp_frame{command = <<"CONNECT">>}, State = #stomp_proto{connected =
 received(#stomp_frame{command = <<"SEND">>, headers = Headers, body = Body}, State) ->
     Topic = header(<<"destination">>, Headers),
     Action = fun(State0) ->
-                 emqx:publish(
-                     emqx_message:make(
-                         stomp, Topic, iolist_to_binary(Body))),
+                 emqx_broker:publish(
+                   emqx_message:make(
+                     stomp, Topic, iolist_to_binary(Body))),
                  State0
              end,
     case header(<<"transaction">>, Headers) of
@@ -108,7 +104,7 @@ received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
         {Id, Topic, Ack} ->
             {ok, State};
         false ->
-            emqx:subscribe(Topic),
+            _ = emqx_broker:subscribe(Topic),
             {ok, State#stomp_proto{subscriptions = [{Id, Topic, Ack}|Subscriptions]}}
     end;
 
@@ -117,7 +113,7 @@ received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
     Id = header(<<"id">>, Headers),
     case lists:keyfind(Id, 1, Subscriptions) of
         {Id, Topic, _Ack} ->
-            emqx:unsubscribe(Topic),
+            ok = emqx_broker:unsubscribe(Topic),
             {ok, State#stomp_proto{subscriptions = lists:keydelete(Id, 1, Subscriptions)}};
         false ->
             {ok, State}
@@ -201,13 +197,13 @@ send(Msg = #mqtt_message{topic = Topic, payload = Payload},
             Headers = [{<<"subscription">>, Id},
                        {<<"message-id">>, next_msgid()},
                        {<<"destination">>, Topic},
-                       {<<"content-type">>, <<"text/plain">>}], 
+                       {<<"content-type">>, <<"text/plain">>}],
             Frame = #stomp_frame{command = <<"MESSAGE">>,
                                  headers = Headers,
                                  body = Payload},
             send(Frame, State);
         false ->
-            lager:error("Stomp dropped: ~p", [Msg]),
+            ?LOG(error, "Stomp dropped: ~p", [Msg], State),
             {error, dropped, State}
     end;
 
@@ -267,7 +263,7 @@ receipt_frame(Receipt) ->
     emqx_stomp_frame:make(<<"RECEIPT">>, [{<<"receipt-id">>, Receipt}]).
 
 error_frame(Msg) ->
-    error_frame([{<<"content-type">>, <<"text/plain">>}], Msg). 
+    error_frame([{<<"content-type">>, <<"text/plain">>}], Msg).
 error_frame(Headers, Msg) ->
     emqx_stomp_frame:make(<<"ERROR">>, Headers, Msg).
 
