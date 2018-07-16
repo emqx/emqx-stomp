@@ -1,16 +1,17 @@
 PROJECT = emqx_stomp
 PROJECT_DESCRIPTION = EMQ X Stomp Protocol Plugin
 PROJECT_VERSION = 3.0
+PROJECT_MOD = emqx_stomp
 
 DEPS = clique
-dep_clique = git https://github.com/emqtt/clique
+dep_clique = git https://github.com/emqx/clique
 
 BUILD_DEPS = emqx cuttlefish
 dep_emqx = git https://github.com/emqtt/emqttd emqx30
-dep_cuttlefish = git https://github.com/emqtt/cuttlefish
+dep_cuttlefish = git https://github.com/emqx/cuttlefish
 
 TEST_DEPS = emqx_ct_helplers
-dep_emqx_ct_helplers = git git@github.com:emqx/emqx_ct_helpers
+dep_emqx_ct_helplers = git git@github.com:emqx/emqx-ct-helpers
 
 NO_AUTOPATCH = cuttlefish
 
