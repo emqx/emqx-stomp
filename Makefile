@@ -6,7 +6,7 @@ DEPS = clique
 dep_clique = git https://github.com/emqtt/clique v0.3.10
 
 BUILD_DEPS = emqttd cuttlefish
-dep_emqttd = git https://github.com/emqtt/emqttd emq24
+dep_emqttd = git https://github.com/emqtt/emqttd master
 dep_cuttlefish = git https://github.com/emqtt/cuttlefish v2.0.11
 
 NO_AUTOPATCH = cuttlefish
