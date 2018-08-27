@@ -15,13 +15,14 @@
 -module(emqx_stomp).
 
 -behaviour(application).
+-behaviour(supervisor).
 
 -export([start/2, stop/1]).
 -export([start_listener/0, stop_listener/0]).
+-export([init/1]).
 
 -define(APP, ?MODULE).
-
--define(SOCK_OPTS, [binary, {packet, raw}, {reuseaddr, true}, {nodelay, true}]).
+-define(TCP_OPTS, [binary, {packet, raw}, {reuseaddr, true}, {nodelay, true}]).
 
 %%--------------------------------------------------------------------
 %% Application callbacks
@@ -52,12 +53,12 @@ start_listener() ->
     {ok, {Port, Opts}} = application:get_env(?APP, listener),
     {ok, Env} = application:get_env(?APP, frame),
     MFArgs = {emqx_stomp_connection, start_link, [Env]},
-    esockd:open(stomp, Port, merge_sockopts(Opts), MFArgs).
+    esockd:open(stomp, Port, merge_opts(Opts), MFArgs).
 
-merge_sockopts(Opts) ->
-    SockOpts = emqx_misc:merge_opts(
-                 ?SOCK_OPTS, proplists:get_value(sockopts, Opts, [])),
-    emqx_misc:merge_opts(Opts, [{sockopts, SockOpts}]).
+merge_opts(Opts) ->
+    TcpOpts = emqx_misc:merge_opts(
+                 ?TCP_OPTS, proplists:get_value(tcp_options, Opts, [])),
+    emqx_misc:merge_opts(Opts, [{tcp_options, TcpOpts}]).
 
 stop_listener() ->
     {ok, {Port, _Opts}} = application:get_env(?APP, listener),

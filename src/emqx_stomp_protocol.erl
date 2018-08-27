@@ -18,7 +18,6 @@
 -include("emqx_stomp.hrl").
 -include_lib("emqx/include/emqx.hrl").
 -include_lib("emqx/include/emqx_mqtt.hrl").
--include_lib("emqx/include/emqx_misc.hrl").
 
 -import(proplists, [get_value/2, get_value/3]).
 
@@ -37,18 +36,25 @@
 
 -type(stomp_proto() :: #stomp_proto{}).
 
--define(INFO_KEYS, [connected, proto_ver, proto_name, heart_beats, login,
-                    subscriptions]).
-
 -define(LOG(Level, Format, Args, State),
-        lager:Level("Stomp(~s): " ++ Format, [esockd_net:format(State#stomp_proto.peername) | Args])).
+        emqx_logger:Level("Stomp(~s): " ++ Format, [esockd_net:format(State#stomp_proto.peername) | Args])).
 
 %% @doc Init protocol
 init(Peername, SendFun, _Env) ->
 	#stomp_proto{peername = Peername, sendfun = SendFun}.
 
-info(ProtoState) ->
-    ?record_to_proplist(stomp_proto, ProtoState, ?INFO_KEYS).
+info(#stomp_proto{connected     = Connected,
+                  proto_ver     = ProtoVer,
+                  proto_name    = ProtoName,
+                  heart_beats   = Heartbeats,
+                  login         = Login,
+                  subscriptions = Subscriptions}) ->
+    [{connected, Connected},
+     {proto_ver, ProtoVer},
+     {proto_name, ProtoName},
+     {heart_beats, Heartbeats},
+     {login, Login},
+     {subscriptions, Subscriptions}].
 
 -spec(received(stomp_frame(), stomp_proto()) -> {ok, stomp_proto()}
                                               | {error, any(), stomp_proto()}
@@ -187,7 +193,7 @@ received(#stomp_frame{command = <<"DISCONNECT">>, headers = Headers}, State) ->
     send(receipt_frame(header(<<"receipt">>, Headers)), State),
     {stop, normal, State}.
 
-send(Msg = #mqtt_message{topic = Topic, payload = Payload},
+send(Msg = #message{topic = Topic, payload = Payload},
      State = #stomp_proto{subscriptions = Subscriptions}) ->
     case lists:keyfind(Topic, 2, Subscriptions) of
         {Id, Topic, _Ack} ->

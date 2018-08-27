@@ -29,11 +29,10 @@
                        proto_env, heartbeat}).
 
 -define(INFO_KEYS, [peername, await_recv, conn_state]).
-
 -define(SOCK_STATS, [recv_oct, recv_cnt, send_oct, send_cnt]).
 
 -define(LOG(Level, Format, Args, State),
-            lager:Level("Stomp(~s): " ++ Format, [State#stomp_client.conn_name | Args])).
+        emqx_logger:Level("Stomp(~s): " ++ Format, [State#stomp_client.conn_name | Args])).
 
 start_link(Transport, Sock, ProtoEnv) ->
     {ok, proc_lib:spawn_link(?MODULE, init, [[Transport, Sock, ProtoEnv]])}.
@@ -50,7 +49,7 @@ init([Transport, Sock, ProtoEnv]) ->
             SendFun = send_fun(Transport, Sock),
             ParseFun = emqx_stomp_frame:parser(ProtoEnv),
             ProtoState = emqx_stomp_protocol:init(Peername, SendFun, ProtoEnv),
-            RateLimit = proplists:get_value(rate_limit, ProtoEnv),
+            RateLimit = init_rate_limit(proplists:get_value(rate_limit, ProtoEnv)),
             State = run_socket(#stomp_client{transport   = Transport,
                                              socket      = NewSock,
                                              peername    = Peername,
@@ -65,6 +64,11 @@ init([Transport, Sock, ProtoEnv]) ->
         {error, Reason} ->
             {stop, Reason}
     end.
+
+init_rate_limit(undefined) ->
+    undefined;
+init_rate_limit({Rate, Burst}) ->
+    esockd_rate_limit:new(Rate, Burst).
 
 send_fun(Transport, Sock) ->
     Self = self(),
@@ -94,11 +98,11 @@ handle_call(info, _From, State = #stomp_client{transport   = Transport,
     end;
 
 handle_call(Req, _From, State) ->
-    ?LOG(error, "Unexpected request: ~p", [Req], State),
-    {reply, ignore, State}.
+    ?LOG(error, "unexpected request: ~p", [Req], State),
+    {reply, ignored, State}.
 
 handle_cast(Msg, State) ->
-    ?LOG(error, "Unexpected msg: ~p", [Msg], State),
+    ?LOG(error, "unexpected msg: ~p", [Msg], State),
     noreply(State).
 
 handle_info(timeout, State) ->
@@ -203,10 +207,9 @@ reset_parser(State = #stomp_client{proto_env = ProtoEnv}) ->
 rate_limit(_Size, State = #stomp_client{rate_limit = undefined}) ->
     run_socket(State);
 rate_limit(Size, State = #stomp_client{rate_limit = Rl}) ->
-    case Rl:check(Size) of
+    case esockd_rate_limit:check(Size, Rl) of
         {0, Rl1} ->
-            run_socket(State#stomp_client{conn_state = running,
-                                          rate_limit = Rl1});
+            run_socket(State#stomp_client{conn_state = running, rate_limit = Rl1});
         {Pause, Rl1} ->
             ?LOG(error, "Rate limiter pause for ~p", [Pause], State),
             erlang:send_after(Pause, self(), activate_sock),

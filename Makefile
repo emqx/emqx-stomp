@@ -11,7 +11,7 @@ dep_emqx = git https://github.com/emqtt/emqttd emqx30
 dep_cuttlefish = git https://github.com/emqx/cuttlefish
 
 TEST_DEPS = emqx_ct_helplers
-dep_emqx_ct_helplers = git git@github.com:emqx/emqx-ct-helpers
+dep_emqx_ct_helplers = git https://github.com/emqx/emqx-ct-helpers
 
 NO_AUTOPATCH = cuttlefish
 

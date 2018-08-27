@@ -18,10 +18,6 @@
 
 -define(APP, emqx_stomp).
 
-%%--------------------------------------------------------------------
-%% API
-%%--------------------------------------------------------------------
-
 register() ->
     clique_config:load_schema([code:priv_dir(?APP)], ?APP),
     register_formatter(),
