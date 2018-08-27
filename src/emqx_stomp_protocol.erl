@@ -39,6 +39,13 @@
 -define(LOG(Level, Format, Args, State),
         emqx_logger:Level("Stomp(~s): " ++ Format, [esockd_net:format(State#stomp_proto.peername) | Args])).
 
+-define(record_to_proplist(Def, Rec),
+        lists:zip(record_info(fields, Def), tl(tuple_to_list(Rec)))).
+
+-define(record_to_proplist(Def, Rec, Fields),
+    [{K, V} || {K, V} <- ?record_to_proplist(Def, Rec),
+                         lists:member(K, Fields)]).
+
 %% @doc Init protocol
 init(Peername, SendFun, _Env) ->
 	#stomp_proto{peername = Peername, sendfun = SendFun}.
