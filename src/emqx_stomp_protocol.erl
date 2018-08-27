@@ -18,7 +18,6 @@
 -include("emqx_stomp.hrl").
 -include_lib("emqx/include/emqx.hrl").
 -include_lib("emqx/include/emqx_mqtt.hrl").
--include_lib("emqx/include/emqx_misc.hrl").
 
 -import(proplists, [get_value/2, get_value/3]).
 
@@ -42,6 +41,13 @@
 
 -define(LOG(Level, Format, Args, State),
         lager:Level("Stomp(~s): " ++ Format, [esockd_net:format(State#stomp_proto.peername) | Args])).
+
+-define(record_to_proplist(Def, Rec),
+        lists:zip(record_info(fields, Def), tl(tuple_to_list(Rec)))).
+
+-define(record_to_proplist(Def, Rec, Fields),
+    [{K, V} || {K, V} <- ?record_to_proplist(Def, Rec),
+                         lists:member(K, Fields)]).
 
 %% @doc Init protocol
 init(Peername, SendFun, _Env) ->
@@ -187,7 +193,7 @@ received(#stomp_frame{command = <<"DISCONNECT">>, headers = Headers}, State) ->
     send(receipt_frame(header(<<"receipt">>, Headers)), State),
     {stop, normal, State}.
 
-send(Msg = #mqtt_message{topic = Topic, payload = Payload},
+send(Msg = #message{topic = Topic, payload = Payload},
      State = #stomp_proto{subscriptions = Subscriptions}) ->
     case lists:keyfind(Topic, 2, Subscriptions) of
         {Id, Topic, _Ack} ->
