@@ -16,7 +16,6 @@ dep_emqx_ct_helplers = git https://github.com/emqx/emqx-ct-helpers
 NO_AUTOPATCH = cuttlefish
 
 ERLC_OPTS += +debug_info
-ERLC_OPTS += +'{parse_transform, lager_transform}'
 
 CT_SUITES = emqx_stomp
 
