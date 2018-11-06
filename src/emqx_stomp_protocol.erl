@@ -82,11 +82,13 @@ received(#stomp_frame{command = <<"CONNECT">>, headers = Headers},
                     send(connected_frame([{<<"version">>, Version},
                                           {<<"heart-beat">>, reverse_heartbeats(Heartbeats)}]), NewState);
                 false ->
-                    send(error_frame(undefined, <<"Login or passcode error!">>), State)
+                    send(error_frame(undefined, <<"Login or passcode error!">>), State),
+                    {error, login_or_passcode_error, State}
              end;
         {error, Msg} ->
             send(error_frame([{<<"version">>, <<"1.0,1.1,1.2">>},
-                              {<<"content-type">>, <<"text/plain">>}], undefined, Msg), State)
+                              {<<"content-type">>, <<"text/plain">>}], undefined, Msg), State),
+            {error, unsupported_version, State}
     end;
 
 received(#stomp_frame{command = <<"CONNECT">>}, State = #stomp_proto{connected = true}) ->
