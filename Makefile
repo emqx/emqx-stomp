@@ -8,7 +8,7 @@ dep_clique = git https://github.com/emqx/clique
 
 BUILD_DEPS = emqx cuttlefish
 dep_emqx = git https://github.com/emqtt/emqttd emqx30
-dep_cuttlefish = git https://github.com/emqx/cuttlefish
+dep_cuttlefish = git https://github.com/emqx/cuttlefish emqx30
 
 TEST_DEPS = emqx_ct_helplers
 dep_emqx_ct_helplers = git https://github.com/emqx/emqx-ct-helpers
@@ -17,6 +17,11 @@ NO_AUTOPATCH = cuttlefish
 
 ERLC_OPTS += +debug_info
 ERLC_OPTS += +'{parse_transform, lager_transform}'
+
+CT_SUITES = emqx_stomp
+
+CT_NODE_NAME = emqxct@127.0.0.1
+CT_OPTS = -cover test/ct.cover.spec -erl_args -name $(CT_NODE_NAME)
 
 COVER = true
 
