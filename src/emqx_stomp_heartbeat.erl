@@ -90,6 +90,8 @@ resume(Hb, NewVal) ->
 resume(Hb = #heartbeater{name = InOut, cycle = Cycle}, NewVal, Repeat) ->
     Hb#heartbeater{tref = timer(InOut, Cycle), val = NewVal, repeat = Repeat}.
 
+timer(_InOut, 0) ->
+    undefined;
 timer(InOut, Cycle) ->
     erlang:send_after(Cycle, self(), {heartbeat, InOut}).
 
