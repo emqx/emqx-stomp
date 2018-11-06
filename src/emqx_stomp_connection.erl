@@ -146,8 +146,12 @@ handle_info({inet_reply, _Sock, {error, Reason}}, State) ->
     shutdown(Reason, State);
 
 handle_info({dispatch, _Topic, Msg}, State = #stomp_client{proto_state = ProtoState}) ->
-    {ok, ProtoState1} = emqx_stomp_protocol:send(Msg, ProtoState),
-    noreply(State#stomp_client{proto_state = ProtoState1});
+    noreply(State#stomp_client{proto_state = case emqx_stomp_protocol:send(Msg, ProtoState) of 
+                                                 {ok, ProtoState1} ->
+                                                     ProtoState1;
+                                                 {error, dropped, ProtoState1} ->
+                                                     ProtoState1
+                                             end});
 
 handle_info(Info, State) ->
     ?LOG(error, "Unexpected info: ~p", [Info], State),

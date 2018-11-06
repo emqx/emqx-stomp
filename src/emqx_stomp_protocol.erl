@@ -82,11 +82,11 @@ received(#stomp_frame{command = <<"CONNECT">>, headers = Headers},
                     send(connected_frame([{<<"version">>, Version},
                                           {<<"heart-beat">>, reverse_heartbeats(Heartbeats)}]), NewState);
                 false ->
-                    send(error_frame(<<"Login or passcode error!">>), State)
+                    send(error_frame(undefined, <<"Login or passcode error!">>), State)
              end;
         {error, Msg} ->
             send(error_frame([{<<"version">>, <<"1.0,1.1,1.2">>},
-                              {<<"content-type">>, <<"text/plain">>}], Msg), State)
+                              {<<"content-type">>, <<"text/plain">>}], undefined, Msg), State)
     end;
 
 received(#stomp_frame{command = <<"CONNECT">>}, State = #stomp_proto{connected = true}) ->
@@ -95,14 +95,15 @@ received(#stomp_frame{command = <<"CONNECT">>}, State = #stomp_proto{connected =
 received(#stomp_frame{command = <<"SEND">>, headers = Headers, body = Body}, State) ->
     Topic = header(<<"destination">>, Headers),
     Action = fun(State0) ->
+                 maybe_send_receipt(receipt_id(Headers), State0),
                  emqx_broker:publish(
-                   emqx_message:make(
-                     stomp, Topic, iolist_to_binary(Body))),
+                     make_mqtt_message(Topic, Headers, iolist_to_binary(Body))
+                 ),
                  State0
              end,
     case header(<<"transaction">>, Headers) of
         undefined     -> {ok, Action(State)};
-        TransactionId -> add_action(TransactionId, Action, State)
+        TransactionId -> add_action(TransactionId, Action, receipt_id(Headers), State)
     end;
 
 received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
@@ -110,24 +111,27 @@ received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
     Id    = header(<<"id">>, Headers),
     Topic = header(<<"destination">>, Headers),
     Ack   = header(<<"ack">>, Headers, <<"auto">>),
-    case lists:keyfind(Id, 1, Subscriptions) of
-        {Id, Topic, Ack} ->
-            {ok, State};
-        false ->
-            _ = emqx_broker:subscribe(Topic),
-            {ok, State#stomp_proto{subscriptions = [{Id, Topic, Ack}|Subscriptions]}}
-    end;
+    {ok, State1} = case lists:keyfind(Id, 1, Subscriptions) of
+                       {Id, Topic, Ack} ->
+                           {ok, State};
+                       false ->
+                           _ = emqx_broker:subscribe(Topic),
+                           {ok, State#stomp_proto{subscriptions = [{Id, Topic, Ack}|Subscriptions]}}
+                   end,
+    maybe_send_receipt(receipt_id(Headers), State1);
 
 received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
             State = #stomp_proto{subscriptions = Subscriptions}) ->
     Id = header(<<"id">>, Headers),
-    case lists:keyfind(Id, 1, Subscriptions) of
-        {Id, Topic, _Ack} ->
-            ok = emqx_broker:unsubscribe(Topic),
-            {ok, State#stomp_proto{subscriptions = lists:keydelete(Id, 1, Subscriptions)}};
-        false ->
-            {ok, State}
-    end;
+
+    {ok, State1} = case lists:keyfind(Id, 1, Subscriptions) of
+                       {Id, Topic, _Ack} ->
+                           ok = emqx_broker:unsubscribe(Topic),
+                           {ok, State#stomp_proto{subscriptions = lists:keydelete(Id, 1, Subscriptions)}};
+                       false ->
+                           {ok, State}
+                   end,
+    maybe_send_receipt(receipt_id(Headers), State1);
 
 %% ACK
 %% id:12345
@@ -136,10 +140,13 @@ received(#stomp_frame{command = <<"UNSUBSCRIBE">>, headers = Headers},
 %% ^@
 received(#stomp_frame{command = <<"ACK">>, headers = Headers}, State) ->
     Id = header(<<"id">>, Headers),
-    Action = fun(State0) -> ack(Id, State0) end,
+    Action = fun(State0) -> 
+                 maybe_send_receipt(receipt_id(Headers), State0),
+                 ack(Id, State0) 
+             end,
     case header(<<"transaction">>, Headers) of
         undefined     -> {ok, Action(State)};
-        TransactionId -> add_action(TransactionId, Action, State)
+        TransactionId -> add_action(TransactionId, Action, receipt_id(Headers), State)
     end;
 
 %% NACK
@@ -149,10 +156,13 @@ received(#stomp_frame{command = <<"ACK">>, headers = Headers}, State) ->
 %% ^@
 received(#stomp_frame{command = <<"NACK">>, headers = Headers}, State) ->
     Id = header(<<"id">>, Headers),
-    Action = fun(State0) -> nack(Id, State0) end,
+    Action = fun(State0) -> 
+                 maybe_send_receipt(receipt_id(Headers), State0),
+                 nack(Id, State0) 
+             end,
     case header(<<"transaction">>, Headers) of
         undefined     -> {ok, Action(State)};
-        TransactionId -> add_action(TransactionId, Action, State)
+        TransactionId -> add_action(TransactionId, Action, receipt_id(Headers), State)
     end;
 
 %% BEGIN
@@ -164,10 +174,10 @@ received(#stomp_frame{command = <<"BEGIN">>, headers = Headers}, State) ->
     %% self() ! TimeoutMsg
     TimeoutMsg = {transaction, {timeout, Id}},
     case emqx_stomp_transaction:start(Id, TimeoutMsg) of
-        {ok, _Transaction}       ->
-            {ok, State};
+        {ok, _Transaction} ->
+            maybe_send_receipt(receipt_id(Headers), State);
         {error, already_started} ->
-            send(error_frame(["Transaction ", Id, " already started"]), State)
+            send(error_frame(receipt_id(Headers), ["Transaction ", Id, " already started"]), State)
     end;
 
 %% COMMIT
@@ -178,9 +188,9 @@ received(#stomp_frame{command = <<"COMMIT">>, headers = Headers}, State) ->
     Id = header(<<"transaction">>, Headers),
     case emqx_stomp_transaction:commit(Id, State) of
         {ok, NewState} ->
-            {ok, NewState};
+            maybe_send_receipt(receipt_id(Headers), NewState);
         {error, not_found} ->
-            send(error_frame(["Transaction ", Id, " not found"]), State)
+            send(error_frame(receipt_id(Headers), ["Transaction ", Id, " not found"]), State)
     end;
 
 %% ABORT
@@ -191,25 +201,31 @@ received(#stomp_frame{command = <<"ABORT">>, headers = Headers}, State) ->
     Id = header(<<"transaction">>, Headers),
     case emqx_stomp_transaction:abort(Id) of
         ok ->
-            emqx_stomp_transaction:abort(Id), {ok, State};
+            maybe_send_receipt(receipt_id(Headers), State);
         {error, not_found} ->
-            send(error_frame(["Transaction ", Id, " not found"]), State)
+            send(error_frame(receipt_id(Headers), ["Transaction ", Id, " not found"]), State)
     end;
 
 received(#stomp_frame{command = <<"DISCONNECT">>, headers = Headers}, State) ->
-    send(receipt_frame(header(<<"receipt">>, Headers)), State),
+    maybe_send_receipt(receipt_id(Headers), State),
     {stop, normal, State}.
 
-send(Msg = #message{topic = Topic, payload = Payload},
+send(Msg = #message{topic = Topic, headers = Headers, payload = Payload},
      State = #stomp_proto{subscriptions = Subscriptions}) ->
     case lists:keyfind(Topic, 2, Subscriptions) of
-        {Id, Topic, _Ack} ->
-            Headers = [{<<"subscription">>, Id},
-                       {<<"message-id">>, next_msgid()},
-                       {<<"destination">>, Topic},
-                       {<<"content-type">>, <<"text/plain">>}],
+        {Id, Topic, Ack} ->
+            Headers0 = [{<<"subscription">>, Id},
+                        {<<"message-id">>, next_msgid()},
+                        {<<"destination">>, Topic},
+                        {<<"content-type">>, <<"text/plain">>}],
+            Headers1 = case Ack of 
+                           _ when Ack =:= <<"client">> orelse Ack =:= <<"client-individual">> -> 
+                               Headers0 ++ [{<<"ack">>, next_ackid()}];
+                           _ ->
+                               Headers0
+                       end,
             Frame = #stomp_frame{command = <<"MESSAGE">>,
-                                 headers = Headers,
+                                 headers = Headers1 ++ maps:get(stomp_headers, Headers, []),
                                  body = Payload},
             send(Frame, State);
         false ->
@@ -249,15 +265,21 @@ check_login(Login, Passcode) ->
         {_,     _       } -> false
     end.
 
-add_action(Id, Action, State) ->
+add_action(Id, Action, ReceiptId, State) ->
     case emqx_stomp_transaction:add(Id, Action) of
         {ok, _}           ->
             {ok, State};
         {error, not_found} ->
-            send(error_frame(["Transaction ", Id, " not found"]), State)
+            send(error_frame(ReceiptId, ["Transaction ", Id, " not found"]), State)
     end.
 
-ack(_Id, State) -> State.
+maybe_send_receipt(undefined, State) ->
+    {ok, State};
+maybe_send_receipt(ReceiptId, State) ->
+    send(receipt_frame(ReceiptId), State).
+
+ack(_Id, State) -> 
+    State.
 
 nack(_Id, State) -> State.
 
@@ -269,13 +291,16 @@ header(Name, Headers, Val) ->
 connected_frame(Headers) ->
     emqx_stomp_frame:make(<<"CONNECTED">>, Headers).
 
-receipt_frame(Receipt) ->
-    emqx_stomp_frame:make(<<"RECEIPT">>, [{<<"receipt-id">>, Receipt}]).
+receipt_frame(ReceiptId) ->
+    emqx_stomp_frame:make(<<"RECEIPT">>, [{<<"receipt-id">>, ReceiptId}]).
 
-error_frame(Msg) ->
-    error_frame([{<<"content-type">>, <<"text/plain">>}], Msg).
-error_frame(Headers, Msg) ->
-    emqx_stomp_frame:make(<<"ERROR">>, Headers, Msg).
+error_frame(ReceiptId, Msg) ->
+    error_frame([{<<"content-type">>, <<"text/plain">>}], ReceiptId, Msg).
+
+error_frame(Headers, undefined, Msg) ->
+    emqx_stomp_frame:make(<<"ERROR">>, Headers, Msg);
+error_frame(Headers, ReceiptId, Msg) ->
+    emqx_stomp_frame:make(<<"ERROR">>, [{<<"receipt-id">>, ReceiptId} | Headers], Msg).
 
 parse_heartbeats(Heartbeats) ->
     CxCy = re:split(Heartbeats, <<",">>, [{return, list}]),
@@ -293,5 +318,28 @@ next_msgid() ->
                 undefined -> 1;
                 I         -> I
             end,
-    put(msgid, MsgId+1), MsgId.
+    put(msgid, MsgId + 1), 
+    MsgId.
+
+next_ackid() ->
+    AckId = case get(ackid) of
+                undefined -> 1;
+                I         -> I
+            end,
+    put(ackid, AckId + 1), 
+    AckId.
+
+make_mqtt_message(Topic, Headers, Body) ->
+    Msg = emqx_message:make(stomp, Topic, Body),
+    Headers1 = lists:foldl(fun(Key, Headers0) ->
+                               proplists:delete(Key, Headers0)
+                           end, Headers, [<<"destination">>, 
+                                          <<"content-length">>, 
+                                          <<"content-type">>, 
+                                          <<"transaction">>,
+                                          <<"receipt">>]),
+    emqx_message:set_headers(#{stomp_headers => Headers1}, Msg).
+
+receipt_id(Headers) ->
+    header(<<"receipt">>, Headers).
 
