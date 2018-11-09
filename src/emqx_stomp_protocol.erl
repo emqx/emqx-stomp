@@ -117,7 +117,7 @@ received(#stomp_frame{command = <<"SUBSCRIBE">>, headers = Headers},
                        {Id, Topic, Ack} ->
                            {ok, State};
                        false ->
-                           _ = emqx_broker:subscribe(Topic),
+                           emqx_broker:subscribe(Topic),
                            {ok, State#stomp_proto{subscriptions = [{Id, Topic, Ack}|Subscriptions]}}
                    end,
     maybe_send_receipt(receipt_id(Headers), State1);
