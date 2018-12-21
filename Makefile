@@ -4,14 +4,11 @@ PROJECT_VERSION = 3.0
 PROJECT_MOD = emqx_stomp
 
 DEPS = clique
-dep_clique = git https://github.com/emqx/clique
+dep_clique = git https://github.com/emqx/clique v0.3.11
 
 BUILD_DEPS = emqx cuttlefish
 dep_emqx = git https://github.com/emqx/emqx emqx30
-dep_cuttlefish = git https://github.com/emqx/cuttlefish emqx30
-
-TEST_DEPS = emqx_ct_helplers
-dep_emqx_ct_helplers = git https://github.com/emqx/emqx-ct-helpers
+dep_cuttlefish = git https://github.com/emqx/cuttlefish v2.1.1
 
 NO_AUTOPATCH = cuttlefish
 
