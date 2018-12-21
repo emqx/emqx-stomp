@@ -8,7 +8,7 @@ dep_clique = git https://github.com/emqx/clique v0.3.11
 
 BUILD_DEPS = emqx cuttlefish
 dep_emqx = git https://github.com/emqx/emqx emqx30
-dep_cuttlefish = git https://github.com/emqx/cuttlefish v2.1.1
+dep_cuttlefish = git https://github.com/emqx/cuttlefish v2.2.0
 
 NO_AUTOPATCH = cuttlefish
 
