@@ -1,5 +1,4 @@
-%%--------------------------------------------------------------------
-%% Copyright (c) 2013-2018 EMQ Enterprise, Inc. (http://emqtt.io)
+%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -12,7 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%--------------------------------------------------------------------
 
 %% @doc
 %%
@@ -24,17 +22,12 @@
 %%
 %% Body^@
 %%
-%% @end
-
--module(emq_stomp_frame).
-
-%%--------------------------------------------------------------------
 %% Stomp 1.2 BNF grammar:
 %%
 %% NULL                = <US-ASCII null (octet 0)>
 %% LF                  = <US-ASCII line feed (aka newline) (octet 10)>
 %% CR                  = <US-ASCII carriage return (octet 13)>
-%% EOL                 = [CR] LF 
+%% EOL                 = [CR] LF
 %% OCTET               = <any 8-bit sequence of data>
 %%
 %% frame-stream        = 1*frame
@@ -68,9 +61,12 @@
 %% header              = header-name ":" header-value
 %% header-name         = 1*<any OCTET except CR or LF or ":">
 %% header-value        = *<any OCTET except CR or LF or ":">
-%%--------------------------------------------------------------------
+%%
+%% @end
 
--include("emq_stomp.hrl").
+-module(emqx_stomp_frame).
+
+-include("emqx_stomp.hrl").
 
 -export([parser/1, serialize/1]).
 
@@ -88,9 +84,9 @@
 
 -record(frame_limit, {max_header_num, max_header_length, max_body_length}).
 
--type parser() :: fun((binary()) -> {ok, stomp_frame(), binary()} 
+-type(parser() :: fun((binary()) -> {ok, stomp_frame(), binary()}
                                   | {more, parser()}
-                                  | {error, any()}).
+                                  | {error, any()})).
 
 %% @doc Initialize a parser
 -spec parser([proplists:property()]) -> parser().
@@ -106,9 +102,8 @@ g(Key, Opts, Val) ->
     proplists:get_value(Key, Opts, Val).
 
 %% @doc Parse frame
--spec parse(Phase :: atom(), binary(), #parser_state{}) ->
-    {ok, stomp_frame(), binary()} | {more, parser()} | {error, any()}.
-
+-spec(parse(Phase :: atom(), binary(), #parser_state{}) ->
+    {ok, stomp_frame(), binary()} | {more, parser()} | {error, any()}).
 parse(none, <<>>, State) ->
     {more, fun(Bin) -> parse(none, Bin, State) end};
 parse(none, <<?LF, Bin/binary>>, State) ->
@@ -165,7 +160,7 @@ parse(body, Bin, State, Len) when byte_size(Bin) >= (Len+1) ->
     {ok, new_frame(acc(Chunk, State)), Rest};
 parse(body, Bin, State, Len) ->
     {more, fun(More) -> parse(body, More, acc(Bin, State), Len - byte_size(Bin)) end}.
-    
+
 add_header(Name, Value, Headers) ->
     case lists:keyfind(Name, 1, Headers) of
         {Name, _} -> Headers;
@@ -192,7 +187,7 @@ acc(Ch, State = #parser_state{acc = Acc}) ->
 %% \\ (octet 92 and 92) translates to \ (octet 92)
 unescape($r)  -> ?CR;
 unescape($n)  -> ?LF;
-unescape($c)  -> ?COLON; 
+unescape($c)  -> ?COLON;
 unescape($\\) -> ?BSL;
 unescape(_Ch) -> {error, cannnot_unescape}.
 

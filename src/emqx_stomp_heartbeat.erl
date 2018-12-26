@@ -1,5 +1,4 @@
-%%--------------------------------------------------------------------
-%% Copyright (c) 2013-2018 EMQ Enterprise, Inc. (http://emqtt.io)
+%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -12,12 +11,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%--------------------------------------------------------------------
 
-%% @doc Stomp Heartbeat.
--module(emq_stomp_heartbeat).
+%% @doc Stomp heartbeat.
+-module(emqx_stomp_heartbeat).
 
--include("emq_stomp.hrl").
+-include("emqx_stomp.hrl").
 
 -export([start_link/2, stop/1]).
 
@@ -92,8 +90,11 @@ resume(Hb, NewVal) ->
 resume(Hb = #heartbeater{name = InOut, cycle = Cycle}, NewVal, Repeat) ->
     Hb#heartbeater{tref = timer(InOut, Cycle), val = NewVal, repeat = Repeat}.
 
+timer(_InOut, 0) ->
+    undefined;
 timer(InOut, Cycle) ->
     erlang:send_after(Cycle, self(), {heartbeat, InOut}).
 
 hibernate(Args) ->
     erlang:hibernate(?MODULE, loop, Args).
+

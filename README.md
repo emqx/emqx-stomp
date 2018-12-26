@@ -1,15 +1,15 @@
 
-emq-stomp
-=========
+emqx-stomp
+==========
 
-The plugin adds STOMP 1.0/1.1/1.2 protocol supports to the EMQ broker.
+The plugin adds STOMP 1.0/1.1/1.2 protocol supports to the EMQ X broker.
 
 The STOMP clients could PubSub to the MQTT clients.
 
 Configuration
 -------------
 
-etc/emq_stomp.conf
+etc/emqx_stomp.conf
 
 ```
 ## The Port that stomp listener will bind.
@@ -62,7 +62,7 @@ Load the Plugin
 ---------------
 
 ```
-./bin/emqttd_ctl plugins load emq_stomp
+./bin/emqx_ctl plugins load emqx_stomp
 ```
 
 License
