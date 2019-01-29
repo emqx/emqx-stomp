@@ -1,6 +1,6 @@
 PROJECT = emqx_stomp
 PROJECT_DESCRIPTION = EMQ X Stomp Protocol Plugin
-PROJECT_VERSION = 3.0
+PROJECT_VERSION = 3.1
 PROJECT_MOD = emqx_stomp
 
 DEPS = clique
