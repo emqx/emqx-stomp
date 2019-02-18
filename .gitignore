@@ -18,3 +18,5 @@ data/
 emqx_stomp.d
 _build/
 rebar.lock
+erlang.mk
+rebar3.crashdump

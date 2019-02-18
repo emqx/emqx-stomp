@@ -1,6 +1,5 @@
 PROJECT = emqx_stomp
 PROJECT_DESCRIPTION = EMQ X Stomp Protocol Plugin
-PROJECT_VERSION = 3.1
 PROJECT_MOD = emqx_stomp
 
 DEPS = clique
@@ -26,7 +25,6 @@ COVER = true
 
 $(shell [ -f erlang.mk ] || curl -s -o erlang.mk https://raw.githubusercontent.com/emqx/erlmk/master/erlang.mk)
 include erlang.mk
-app:: rebar.config
 
 app.config::
 	./deps/cuttlefish/cuttlefish -l info -e etc/ -c etc/emqx_stomp.conf -i priv/emqx_stomp.schema -d data
