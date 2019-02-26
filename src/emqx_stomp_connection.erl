@@ -182,7 +182,7 @@ received(<<>>, State) ->
 
 received(Bytes, State = #stomp_client{parse_fun   = ParseFun,
                                       proto_state = ProtoState}) ->
-    case catch ParseFun(Bytes) of
+    try ParseFun(Bytes) of
         {more, NewParseFun} ->
             noreply(State#stomp_client{parse_fun = NewParseFun});
         {ok, Frame, Rest} ->
@@ -198,8 +198,9 @@ received(Bytes, State = #stomp_client{parse_fun   = ParseFun,
         {error, Error} ->
             ?LOG(error, "Framing error - ~s", [Error], State),
             ?LOG(error, "Bytes: ~p", [Bytes], State),
-            shutdown(frame_error, State);
-        {'EXIT', Reason} ->
+            shutdown(frame_error, State)
+    catch
+        _Error:Reason ->
             ?LOG(error, "Parser failed for ~p", [Reason], State),
             ?LOG(error, "Error data: ~p", [Bytes], State),
             shutdown(parse_error, State)
