@@ -17,10 +17,14 @@
 
 -include("emqx_stomp.hrl").
 
--export([start_link/2, stop/1]).
+-export([ start_link/2
+        , stop/1
+        ]).
 
 %% callback
--export([init/1, loop/3]).
+-export([ init/1
+        , loop/3
+        ]).
 
 -define(MAX_REPEATS, 1).
 
