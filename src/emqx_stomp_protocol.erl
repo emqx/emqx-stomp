@@ -22,8 +22,14 @@
 -import(proplists, [get_value/2, get_value/3]).
 
 %% API
--export([init/3, info/1]).
--export([received/2, send/2, shutdown/2]).
+-export([ init/3
+        , info/1
+        ]).
+
+-export([ received/2
+        , send/2
+        , shutdown/2
+        ]).
 
 -record(stomp_proto, {peername,
                       sendfun,

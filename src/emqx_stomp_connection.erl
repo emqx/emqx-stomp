@@ -18,11 +18,18 @@
 
 -include("emqx_stomp.hrl").
 
--export([start_link/3, info/1]).
+-export([ start_link/3
+        , info/1
+        ]).
 
 %% gen_server Function Exports
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         code_change/3, terminate/2]).
+-export([ init/1
+        , handle_call/3
+        , handle_cast/2
+        , handle_info/2
+        , code_change/3
+        , terminate/2
+        ]).
 
 -record(stomp_client, {transport, socket, peername, conn_name, conn_state,
                        await_recv, rate_limit, parse_fun, proto_state,

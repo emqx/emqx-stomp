@@ -18,7 +18,12 @@
 
 -include("emqx_stomp.hrl").
 
--export([start/2, add/2, commit/2, abort/1, timeout/1]).
+-export([ start/2
+        , add/2
+        , commit/2
+        , abort/1
+        , timeout/1
+        ]).
 
 -record(transaction, {id, actions, tref}).
 

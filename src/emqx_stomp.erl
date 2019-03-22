@@ -17,8 +17,16 @@
 -behaviour(application).
 -behaviour(supervisor).
 
--export([start/2, stop/1]).
--export([start_listener/0, stop_listener/0]).
+-emqx_plugin(?MODULE).
+
+-export([ start/2
+        , stop/1
+        ]).
+
+-export([ start_listener/0
+        , stop_listener/0
+        ]).
+
 -export([init/1]).
 
 -define(APP, ?MODULE).
