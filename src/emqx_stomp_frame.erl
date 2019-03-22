@@ -68,9 +68,14 @@
 
 -include("emqx_stomp.hrl").
 
--export([parser/1, serialize/1]).
+-export([ parser/1
+        , serialize/1
+        ]).
 
--export([make/2, make/3, format/1]).
+-export([ make/2
+        , make/3
+        , format/1
+        ]).
 
 -define(NULL,  0).
 -define(CR,    $\r).
