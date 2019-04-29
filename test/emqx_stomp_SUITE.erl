@@ -16,11 +16,12 @@ all() -> [t_connect,
           t_ack].
 
 init_per_suite(Config) ->
-    [run_setup_steps(App) || App <- [emqx, emqx_stomp]],
+    emqx_ct_helpers:start_apps([emqx, emqx_stomp]),
     Config.
 
 end_per_suite(_Config) ->
-    emqx:shutdown().
+    emqx_ct_helpers:stop_apps([emqx_stomp, emqx]).
+
 
 t_connect(_) ->
     %% Connect should be succeed
@@ -328,41 +329,3 @@ parse(Data) ->
                 {max_body_length, 8192}],
     ParseFun = emqx_stomp_frame:parser(ProtoEnv),
     ParseFun(Data).
-
-run_setup_steps(App) ->
-    NewConfig = generate_config(App),
-    lists:foreach(fun set_app_env/1, NewConfig),
-    application:ensure_all_started(App).
-
-generate_config(emqx) ->
-    Schema = cuttlefish_schema:files([local_path(["deps", "emqx", "priv", "emqx.schema"])]),
-    Conf = conf_parse:file([local_path(["deps", "emqx", "etc", "emqx.conf"])]),
-    cuttlefish_generator:map(Schema, Conf);
-
-generate_config(emqx_stomp) ->
-    Schema = cuttlefish_schema:files([local_path(["priv", "emqx_stomp.schema"])]),
-    Conf = conf_parse:file([local_path(["etc", "emqx_stomp.conf"])]),
-    cuttlefish_generator:map(Schema, Conf).
-
-get_base_dir(Module) ->
-    {file, Here} = code:is_loaded(Module),
-    filename:dirname(filename:dirname(Here)).
-
-get_base_dir() ->
-    get_base_dir(?MODULE).
-
-local_path(Components, Module) ->
-    filename:join([get_base_dir(Module) | Components]).
-
-local_path(Components) ->
-    local_path(Components, ?MODULE).
-
-set_app_env({App, Lists}) ->
-    lists:foreach(fun({acl_file, _Var}) -> 
-                          application:set_env(App, acl_file, local_path(["emqx", "etc", "acl.conf"]));
-                     ({plugins_loaded_file, _Var}) ->
-                          application:set_env(App, plugins_loaded_file, 
-                                              local_path(["emqx", "test", "emqx_SUITE_data", "loaded_plugins"]));
-                     ({Par, Var}) ->
-                          application:set_env(App, Par, Var)
-                  end, Lists).
