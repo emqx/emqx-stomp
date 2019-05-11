@@ -1,7 +1,7 @@
 
 -module(emqx_stomp_SUITE).
 
--include("emqx_stomp.hrl").
+-include_lib("emqx_stomp/include/emqx_stomp.hrl").
 
 -compile(export_all).
 -compile(nowarn_export_all).
