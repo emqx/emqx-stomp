@@ -20,3 +20,4 @@ _build/
 rebar.lock
 erlang.mk
 rebar3.crashdump
+etc/emqx_stomp.conf.rendered
