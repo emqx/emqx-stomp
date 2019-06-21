@@ -17,7 +17,7 @@
 -behaviour(application).
 -behaviour(supervisor).
 
--emqx_plugin(?MODULE).
+-emqx_plugin(protocol).
 
 -export([ start/2
         , stop/1
