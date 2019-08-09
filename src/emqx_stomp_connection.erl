@@ -152,7 +152,7 @@ handle_info({inet_reply, _Ref, ok}, State) ->
 handle_info({inet_reply, _Sock, {error, Reason}}, State) ->
     shutdown(Reason, State);
 
-handle_info({dispatch, _Topic, Msg}, State = #stomp_client{proto_state = ProtoState}) ->
+handle_info({deliver, _Topic, Msg}, State = #stomp_client{proto_state = ProtoState}) ->
     noreply(State#stomp_client{proto_state = case emqx_stomp_protocol:send(Msg, ProtoState) of 
                                                  {ok, ProtoState1} ->
                                                      ProtoState1;
