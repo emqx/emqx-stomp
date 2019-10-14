@@ -134,7 +134,7 @@ t_subscribe(_) ->
                                                      {<<"user-defined">>, <<"emq">>}],
                                                     <<"hello">>)),
 
-                        {ok, Data1} = gen_tcp:recv(Sock, 0),
+                        {ok, Data1} = gen_tcp:recv(Sock, 0, 1000),
                         {ok, Frame = #stomp_frame{command = <<"MESSAGE">>,
                                                   headers = _,
                                                   body    = <<"hello">>}, _} = parse(Data1),
@@ -149,7 +149,7 @@ t_subscribe(_) ->
                                                     [{<<"id">>, 0},
                                                      {<<"receipt">>, <<"12345">>}])),
 
-                        {ok, Data2} = gen_tcp:recv(Sock, 0),
+                        {ok, Data2} = gen_tcp:recv(Sock, 0, 1000),
 
                         {ok, #stomp_frame{command = <<"RECEIPT">>,
                                           headers = [{<<"receipt-id">>, <<"12345">>}],
@@ -201,16 +201,17 @@ t_transaction(_) ->
                         gen_tcp:send(Sock, serialize(<<"COMMIT">>,
                                                     [{<<"transaction">>, <<"tx1">>}])),
 
-                        {ok, Data1} = gen_tcp:recv(Sock, 0),
+                        ct:sleep(1000),
+                        {ok, Data1} = gen_tcp:recv(Sock, 0, 500),
 
                         {ok, #stomp_frame{command = <<"MESSAGE">>,
                                           headers = _,
-                                          body    = <<"hello">>}, Rest} = parse(Data1),
+                                          body    = <<"hello">>}, Rest1} = parse(Data1),
 
-                        {ok, Data2} = gen_tcp:recv(Sock, 0),
+                        %{ok, Data2} = gen_tcp:recv(Sock, 0, 500),
                         {ok, #stomp_frame{command = <<"MESSAGE">>,
                                           headers = _,
-                                          body    = <<"hello again">>}, Rest} = parse(Data2),
+                                          body    = <<"hello again">>}, _Rest2} = parse(Rest1),
 
                         %% Transaction: tx2
                         gen_tcp:send(Sock, serialize(<<"BEGIN">>,
