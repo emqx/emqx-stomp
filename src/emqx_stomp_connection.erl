@@ -54,7 +54,7 @@ init([Transport, Sock, ProtoEnv]) ->
     case Transport:wait(Sock) of
         {ok, NewSock} ->
             {ok, Peername} = Transport:ensure_ok_or_exit(peername, [NewSock]),
-            ConnName = esockd_net:format(Peername),
+            ConnName = esockd:format(Peername),
             SendFun = send_fun(Transport, Sock),
             ParseFun = emqx_stomp_frame:parser(ProtoEnv),
             ProtoState = emqx_stomp_protocol:init(Peername, SendFun, ProtoEnv),
