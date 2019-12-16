@@ -41,12 +41,10 @@
 start(_StartType, _StartArgs) ->
     {ok, Sup} = supervisor:start_link({local, emqx_stomp_sup}, ?MODULE, []),
     start_listener(),
-    emqx_stomp_config:register(),
     {ok, Sup}.
 
 stop(_State) ->
-    stop_listener(),
-    emqx_stomp_config:unregister().
+    stop_listener().
 
 %%--------------------------------------------------------------------
 %% Supervisor callbacks
