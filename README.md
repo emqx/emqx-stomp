@@ -25,7 +25,7 @@ stomp.listener.acceptors = 4
 ## Maximum number of concurrent stomp connections.
 ##
 ## Value: Number
-stomp.listener.max_clients = 512
+stomp.listener.max_connections = 512
 
 ## Default login user
 ##
