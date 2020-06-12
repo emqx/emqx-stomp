@@ -23,20 +23,22 @@
 
 -define(HEARTBEAT, <<$\n>>).
 
-all() -> [t_connect,
-          t_heartbeat,
-          t_subscribe,
-          t_transaction,
-          t_receipt_in_error,
-          t_ack].
+all() -> emqx_ct:all(?MODULE).
+
+%%--------------------------------------------------------------------
+%% Setups
+%%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    emqx_ct_helpers:start_apps([emqx, emqx_stomp]),
+    emqx_ct_helpers:start_apps([emqx_stomp]),
     Config.
 
 end_per_suite(_Config) ->
-    emqx_ct_helpers:stop_apps([emqx_stomp, emqx]).
+    emqx_ct_helpers:stop_apps([emqx_stomp]).
 
+%%--------------------------------------------------------------------
+%% Test Cases
+%%--------------------------------------------------------------------
 
 t_connect(_) ->
     %% Connect should be succeed
