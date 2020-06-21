@@ -26,3 +26,8 @@ cover:
 distclean:
 	@rm -rf _build
 	@rm -f data/app.*.config data/vm.*.args rebar.lock
+
+CUTTLEFISH_SCRIPT = _build/default/lib/cuttlefish/cuttlefish
+
+app.config: $(CUTTLEFISH_SCRIPT) etc/emqx_stomp.conf
+	$(verbose) $(CUTTLEFISH_SCRIPT) -l info -e etc/ -c etc/emqx_stomp.conf -i priv/emqx_stomp.schema -d data
