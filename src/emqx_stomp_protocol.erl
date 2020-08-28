@@ -40,6 +40,8 @@
                       proto_name,
                       heart_beats,
                       login,
+                      allow_anonymous,
+                      default_user,
                       subscriptions = []}).
 
 -type(stomp_proto() :: #stomp_proto{}).
@@ -55,8 +57,13 @@
                          lists:member(K, Fields)]).
 
 %% @doc Init protocol
-init(Peername, SendFun, _Env) ->
-	#stomp_proto{peername = Peername, sendfun = SendFun}.
+init(Peername, SendFun, Env) ->
+    AllowAnonymous = get_value(allow_anonymous, Env, false),
+    DefaultUser = get_value(default_user, Env),
+	#stomp_proto{peername = Peername,
+                 sendfun = SendFun,
+                 allow_anonymous = AllowAnonymous,
+                 default_user = DefaultUser}.
 
 info(#stomp_proto{connected     = Connected,
                   proto_ver     = ProtoVer,
@@ -78,10 +85,12 @@ received(Frame = #stomp_frame{command = <<"STOMP">>}, State) ->
     received(Frame#stomp_frame{command = <<"CONNECT">>}, State);
 
 received(#stomp_frame{command = <<"CONNECT">>, headers = Headers},
-         State = #stomp_proto{connected = false}) ->
+         State = #stomp_proto{connected = false, allow_anonymous = AllowAnonymous, default_user = DefaultUser}) ->
     case negotiate_version(header(<<"accept-version">>, Headers)) of
         {ok, Version} ->
-            case check_login(Login = header(<<"login">>, Headers), header(<<"passcode">>, Headers)) of
+            Login = header(<<"login">>, Headers),
+            Passc = header(<<"passcode">>, Headers),
+            case check_login(Login, Passc, AllowAnonymous, DefaultUser) of
                 true ->
                     Heartbeats = header(<<"heart-beat">>, Headers, <<"0,0">>),
                     self() ! {heartbeat, start, parse_heartbeats(Heartbeats)},
@@ -265,10 +274,11 @@ negotiate_version(Ver, [AcceptVer|_]) when Ver >= AcceptVer ->
 negotiate_version(Ver, [_|T]) ->
     negotiate_version(Ver, T).
 
-check_login(undefined, _) ->
-    application:get_env(emqx_stomp, allow_anonymous, false);
-check_login(Login, Passcode) ->
-    {ok, DefaultUser} = application:get_env(emqx_stomp, default_user),
+check_login(undefined, _, AllowAnonymous, _) ->
+    AllowAnonymous;
+check_login(_, _, _, undefined) ->
+    false;
+check_login(Login, Passcode, _, DefaultUser) ->
     case {list_to_binary(get_value(login, DefaultUser)),
           list_to_binary(get_value(passcode, DefaultUser))} of
         {Login, Passcode} -> true;

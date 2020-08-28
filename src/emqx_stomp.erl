@@ -121,7 +121,10 @@ stop_listener(ssl, ListenOn, _Opts) ->
 listeners_confs() ->
     {ok, {Port, Opts}} = application:get_env(?APP, listener),
     Options = application:get_env(?APP, frame, []),
-    [{tcp, Port, Options ++ Opts}].
+    Anonymous = application:get_env(emqx_stomp, allow_anonymous, false),
+    {ok, DefaultUser} = application:get_env(emqx_stomp, default_user),
+    [{tcp, Port, [{allow_anonymous, Anonymous},
+                  {default_user, DefaultUser} | Options ++ Opts]}].
 
 merge_default(Options) ->
     case lists:keytake(tcp_options, 1, Options) of
