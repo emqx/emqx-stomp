@@ -33,8 +33,11 @@
         , terminate/2
         ]).
 
+%% for protocol
+-export([send/4]).
+
 -record(stomp_client, {transport, socket, peername, conn_name, conn_state,
-                       await_recv, rate_limit, parse_fun, proto_state,
+                       await_recv, rate_limit, parser, proto_state,
                        proto_env, heartbeat}).
 
 -define(INFO_KEYS, [peername, await_recv, conn_state]).
@@ -55,8 +58,8 @@ init([Transport, Sock, ProtoEnv]) ->
         {ok, NewSock} ->
             {ok, Peername} = Transport:ensure_ok_or_exit(peername, [NewSock]),
             ConnName = esockd:format(Peername),
-            SendFun = send_fun(Transport, Sock),
-            ParseFun = emqx_stomp_frame:parser(ProtoEnv),
+            SendFun = {fun ?MODULE:send/4, [Transport, Sock, self()]},
+            Parser = emqx_stomp_frame:init_parer_state(ProtoEnv),
             ProtoState = emqx_stomp_protocol:init(Peername, SendFun, ProtoEnv),
             RateLimit = init_rate_limit(proplists:get_value(rate_limit, ProtoEnv)),
             State = run_socket(#stomp_client{transport   = Transport,
@@ -66,7 +69,7 @@ init([Transport, Sock, ProtoEnv]) ->
                                              conn_state  = running,
                                              await_recv  = false,
                                              rate_limit  = RateLimit,
-                                             parse_fun   = ParseFun,
+                                             parser      = Parser,
                                              proto_env   = ProtoEnv,
                                              proto_state = ProtoState}),
             gen_server:enter_loop(?MODULE, [{hibernate_after, 5000}], State, 20000);
@@ -79,15 +82,12 @@ init_rate_limit(undefined) ->
 init_rate_limit({Rate, Burst}) ->
     esockd_rate_limit:new(Rate, Burst).
 
-send_fun(Transport, Sock) ->
-    Self = self(),
-    fun(Data) ->
-        try Transport:async_send(Sock, Data) of
-            ok -> ok;
-            {error, Reason} -> Self ! {shutdown, Reason}
-        catch
-            error:Error -> Self ! {shutdown, Error}
-        end
+send(Data, Transport, Sock, ConnPid) ->
+    try Transport:async_send(Sock, Data) of
+        ok -> ok;
+        {error, Reason} -> ConnPid ! {shutdown, Reason}
+    catch
+        error:Error -> ConnPid ! {shutdown, Error}
     end.
 
 handle_call(info, _From, State = #stomp_client{transport   = Transport,
@@ -189,11 +189,11 @@ code_change(_OldVsn, State, _Extra) ->
 received(<<>>, State) ->
     noreply(State);
 
-received(Bytes, State = #stomp_client{parse_fun   = ParseFun,
+received(Bytes, State = #stomp_client{parser   = Parser,
                                       proto_state = ProtoState}) ->
-    try ParseFun(Bytes) of
-        {more, NewParseFun} ->
-            noreply(State#stomp_client{parse_fun = NewParseFun});
+    try emqx_stomp_frame:parse(Bytes, Parser) of
+        {more, NewParser} ->
+            noreply(State#stomp_client{parser = NewParser});
         {ok, Frame, Rest} ->
             ?LOG(info, "RECV Frame: ~s", [emqx_stomp_frame:format(Frame)], State),
             case emqx_stomp_protocol:received(Frame, ProtoState) of
@@ -216,7 +216,7 @@ received(Bytes, State = #stomp_client{parse_fun   = ParseFun,
     end.
 
 reset_parser(State = #stomp_client{proto_env = ProtoEnv}) ->
-    State#stomp_client{parse_fun = emqx_stomp_frame:parser(ProtoEnv)}.
+    State#stomp_client{parser = emqx_stomp_frame:init_parer_state(ProtoEnv)}.
 
 rate_limit(_Size, State = #stomp_client{rate_limit = undefined}) ->
     run_socket(State);

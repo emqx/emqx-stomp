@@ -345,5 +345,5 @@ parse(Data) ->
     ProtoEnv = [{max_headers, 10},
                 {max_header_length, 1024},
                 {max_body_length, 8192}],
-    ParseFun = emqx_stomp_frame:parser(ProtoEnv),
-    ParseFun(Data).
+    Parser = emqx_stomp_frame:init_parer_state(ProtoEnv),
+    emqx_stomp_frame:parse(Data, Parser).

@@ -252,11 +252,11 @@ send(Msg = #message{topic = Topic, headers = Headers, payload = Payload},
             {error, dropped, State}
     end;
 
-send(Frame, State = #stomp_proto{sendfun = SendFun}) ->
+send(Frame, State = #stomp_proto{sendfun = {Fun, Args}}) ->
     ?LOG(info, "SEND Frame: ~s", [emqx_stomp_frame:format(Frame)], State),
     Data = emqx_stomp_frame:serialize(Frame),
     ?LOG(debug, "SEND ~p", [Data], State),
-    SendFun(Data),
+    erlang:apply(Fun, [Data] ++ Args),
     {ok, State}.
 
 negotiate_version(undefined) ->
