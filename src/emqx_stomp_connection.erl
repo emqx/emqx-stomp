@@ -24,6 +24,11 @@
         , info/1
         ]).
 
+%% For mgmt
+-export([ call/2
+        , call/3
+        ]).
+
 %% gen_server Function Exports
 -export([ init/1
         , handle_call/3
@@ -47,7 +52,12 @@ start_link(Transport, Sock, ProtoEnv) ->
     {ok, proc_lib:spawn_link(?MODULE, init, [[Transport, Sock, ProtoEnv]])}.
 
 info(CPid) ->
-    gen_server:call(CPid, info, infinity).
+    call(CPid, info).
+
+call(Pid, Msg) ->
+    call(Pid, Msg, infinity).
+call(Pid, Msg, Timeout) ->
+    gen_server:call(Pid, Msg, Timeout).
 
 init([Transport, Sock, ProtoEnv]) ->
     process_flag(trap_exit, true),
@@ -105,6 +115,9 @@ handle_call(info, _From, State = #stomp_client{transport   = Transport,
         {error, Reason} ->
             {stop, Reason, lists:append([ClientInfo, ProtoInfo]), State}
     end;
+
+handle_call(kick, _From, State) ->
+    {stop, {shutdown, kicked}, State};
 
 handle_call(Req, _From, State) ->
     ?LOG(error, "unexpected request: ~p", [Req], State),
